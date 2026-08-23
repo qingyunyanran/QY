@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# PyTorch / SB3
+*.pt
+*.pth
+*.zip
+events.out.tfevents.*
+
+# Results (large files)
+# results/ contains JSON which we keep, but exclude model checkpoints
+*.safetensors
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Env
+.env
+*.log

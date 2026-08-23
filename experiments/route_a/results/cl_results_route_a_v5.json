@@ -1,0 +1,159 @@
+{
+  "route": "A_v5",
+  "task_sequence": [
+    "PokeCube-v1",
+    "PickCube-v1"
+  ],
+  "control_mode": "pd_joint_delta_pos",
+  "unified_obs_dim": 54,
+  "hyperparams": {
+    "lr": 0.0003,
+    "ent_coef": 0.0,
+    "gamma": 0.8,
+    "n_steps": 2048,
+    "batch_size": 64,
+    "n_epochs": 10,
+    "total_timesteps": 1000000,
+    "n_envs": 4
+  },
+  "results": {
+    "phase0_official": {
+      "PokeCube-v1": {
+        "SR": 0.84,
+        "avg_R": 11.932993431165814
+      }
+    },
+    "phase1_final": {
+      "PokeCube-v1": {
+        "SR": 0.92,
+        "avg_R": 11.010335157662631
+      },
+      "PickCube-v1": {
+        "SR": 0.0,
+        "avg_R": 0.38860993895360024
+      }
+    }
+  },
+  "forgetting": {
+    "PokeCube-v1": {
+      "before": 0.84,
+      "after": 0.92,
+      "forget": -0.08000000000000007
+    },
+    "PickCube-v1": {
+      "before": 0.0,
+      "after": 0.0,
+      "forget": 0.0
+    }
+  },
+  "training_details": {
+    "PokeCube-v1": {
+      "phase0_official": {
+        "SR": 0.84,
+        "avg_R": 11.932993431165814
+      }
+    },
+    "PickCube-v1": {
+      "step_100000": {
+        "PokeCube-v1": {
+          "SR": 0.96,
+          "avg_R": 11.030077453553677
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 0.36460918082312443
+        }
+      },
+      "step_200000": {
+        "PokeCube-v1": {
+          "SR": 0.92,
+          "avg_R": 9.679516975805164
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 0.5182849674140289
+        }
+      },
+      "step_300000": {
+        "PokeCube-v1": {
+          "SR": 0.12,
+          "avg_R": 8.039053015634417
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 1.6256927178913976
+        }
+      },
+      "step_400000": {
+        "PokeCube-v1": {
+          "SR": 0.3,
+          "avg_R": 6.049952260330319
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 2.881505436017178
+        }
+      },
+      "step_500000": {
+        "PokeCube-v1": {
+          "SR": 0.06,
+          "avg_R": 4.04083127245307
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 6.259256155658513
+        }
+      },
+      "step_600000": {
+        "PokeCube-v1": {
+          "SR": 0.0,
+          "avg_R": 2.4037000641343185
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 7.711314304992556
+        }
+      },
+      "step_700000": {
+        "PokeCube-v1": {
+          "SR": 0.0,
+          "avg_R": 1.7594070585355985
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 9.80170428596437
+        }
+      },
+      "step_800000": {
+        "PokeCube-v1": {
+          "SR": 0.0,
+          "avg_R": 1.5626030208653174
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 11.996315616071223
+        }
+      },
+      "step_900000": {
+        "PokeCube-v1": {
+          "SR": 0.0,
+          "avg_R": 1.2440372701608908
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 14.926516605392099
+        }
+      },
+      "step_1000000": {
+        "PokeCube-v1": {
+          "SR": 0.0,
+          "avg_R": 1.3017483589970404
+        },
+        "PickCube-v1": {
+          "SR": 0.0,
+          "avg_R": 16.404714414924385
+        }
+      }
+    }
+  }
+}

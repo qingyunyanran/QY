@@ -1,0 +1,53 @@
+{
+  "version": "route_a",
+  "task_sequence": [
+    "PushCube-v1",
+    "PickCube-v1"
+  ],
+  "matrix": {
+    "after_PushCube-v1": {
+      "PushCube-v1": {
+        "sr": 0.0,
+        "avg_reward": 6.910411087572575
+      }
+    },
+    "after_PickCube-v1": {
+      "PushCube-v1": {
+        "sr": 16.0,
+        "avg_reward": 6.359212584495545
+      },
+      "PickCube-v1": {
+        "sr": 2.0,
+        "avg_reward": 1.3335190267657162
+      }
+    }
+  },
+  "task_configs": {
+    "PushCube-v1": {
+      "obs_dim": 35,
+      "act_dim": 8
+    },
+    "PickCube-v1": {
+      "obs_dim": 42,
+      "act_dim": 8
+    }
+  },
+  "timesteps_per_task": 1000000,
+  "eval_episodes": 50,
+  "control_mode": "pd_ee_delta_pose",
+  "net_arch": {
+    "pi": [
+      256,
+      256,
+      256
+    ],
+    "vf": [
+      256,
+      256,
+      256
+    ]
+  },
+  "base_lr": 0.0001,
+  "lr_decay": 0.5,
+  "ent_coef": 0.05
+}

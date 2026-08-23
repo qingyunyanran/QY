@@ -1,0 +1,45 @@
+{
+  "args": {
+    "method": "seqft",
+    "bc_epochs": 50,
+    "eval_episodes": 10,
+    "seed": 42,
+    "n_expert_episodes": 50
+  },
+  "methods": {
+    "seqft": {
+      "metrics": {
+        "FWT": 0.0,
+        "BWT": 0.0,
+        "Forgetting": 0.0,
+        "AUC": 0.0
+      },
+      "success_matrix": [
+        [
+          0.0,
+          NaN,
+          NaN,
+          NaN
+        ],
+        [
+          0.0,
+          0.0,
+          NaN,
+          NaN
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          NaN
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  }
+}
