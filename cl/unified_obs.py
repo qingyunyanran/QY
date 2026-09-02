@@ -5,7 +5,7 @@ Unified 42-dim observation interface for the ManiSkill3 CL benchmark.
 WHY
 ---
 The five Franka Panda tabletop tasks ship with different state-obs dims
-(Push/Pull 35, Pick 42, LiftPegUpright 32, PlaceSphere 39). The difference
+(Push/Pull 35, Pick 42, LiftPegUpright 32, PullCubeTool 39). The difference
 comes ONLY from the number of scene objects and convenience relative vectors
 (tcp_to_obj, obj_to_goal, ...). The relative vectors are linear differences
 of absolute poses (zero new information); PushCube and PullCube contain ZERO
@@ -19,14 +19,15 @@ SLOT LAYOUT (42 dims, identical physical meaning in every task)
   [18:25] tcp_pose          (7: xyz + quaternion)
   [25:32] object SLOT 1     (7): PRIMARY manipulated object
            Push/Pull/Pick: the cube ; LiftPegUpright: the peg ;
-           PlaceSphere: the sphere
+           PullCubeTool: the cube
   [32:39] object SLOT 2     (7): second object / tool
-           all five current tasks are single-object -> zeros
+           PullCubeTool: the L-shape tool ; all other tasks -> zeros
   [39:42] goal_pos          (3: xyz of goal region)
-           Push/Pull/Pick: goal_pos key ; PlaceSphere: bin_pos (the bin the
-           sphere must be placed into) ;
+           Push/Pull/Pick: goal_pos key ;
            LiftPegUpright: zeros (success = peg upright, implicit in slot 1
-           orientation, no goal site in the scene)
+           orientation, no goal site in the scene) ;
+           PullCubeTool: zeros (success = cube pulled close to robot base,
+           implicit in slot 1 xyz)
 
 Removed as redundant:
   tcp_to_obj_pos, is_grasped (inferable from gripper qpos).
@@ -47,8 +48,8 @@ SLOT_LAYOUT = {
     "PushCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
     "PullCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
     "PickCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
-    "LiftPegUpright-v1":  {"slot1": "obj_pose",  "slot2": None, "goal": None},
-    "PlaceSphere-v1":     {"slot1": "obj_pose",  "slot2": None, "goal": "bin_pos"},
+    "LiftPegUpright-v1":  {"slot1": "obj_pose",    "slot2": None,       "goal": None},
+    "PullCubeTool-v1":    {"slot1": "cube_pose",   "slot2": "tool_pose","goal": None},
 }
 
 # Every extra key the five tasks can emit. Anything else is treated as agent
@@ -56,7 +57,7 @@ SLOT_LAYOUT = {
 EXTRA_KEYS = {
     "tcp_pose", "goal_pos", "obj_pose", "is_grasped",
     "tcp_to_obj_pos", "obj_to_goal_pos",
-    "bin_pos",
+    "tool_pose",
 }
 
 
