@@ -5,8 +5,8 @@ Unified 42-dim observation interface for the ManiSkill3 CL benchmark.
 WHY
 ---
 The five Franka Panda tabletop tasks ship with different state-obs dims
-(Push/Pull 35, Pick 42, Stack 48, Poke 54). The difference comes ONLY from
-the number of scene objects and from convenience relative vectors
+(Push/Pull 35, Pick 42, LiftPegUpright 32, PlaceSphere 39). The difference
+comes ONLY from the number of scene objects and convenience relative vectors
 (tcp_to_obj, obj_to_goal, ...). The relative vectors are linear differences
 of absolute poses (zero new information); PushCube and PullCube contain ZERO
 relative vectors and both train to 100% SR. Instead of adding a learned
@@ -18,18 +18,21 @@ SLOT LAYOUT (42 dims, identical physical meaning in every task)
   [ 0:18] agent proprioception (Panda qpos/qvel/...)   - 5 tasks identical
   [18:25] tcp_pose          (7: xyz + quaternion)
   [25:32] object SLOT 1     (7): PRIMARY manipulated object
-           Push/Pull/Pick: the cube ; Stack: cubeA ; Poke: the cube
+           Push/Pull/Pick: the cube ; LiftPegUpright: the peg ;
+           PlaceSphere: the sphere
   [32:39] object SLOT 2     (7): second object / tool
-           Stack: cubeB ; Poke: the peg ; single-object tasks: zeros
+           all five current tasks are single-object -> zeros
   [39:42] goal_pos          (3: xyz of goal region)
-           Stack: zeros (goal = on top of cubeB, implicit via slot 2)
-           Poke: reconstructed as cube_pos + cube_to_goal_pos
-                 (the env's "goal_pos" key actually stores the PEG position)
+           Push/Pull/Pick: goal_pos key ; PlaceSphere: bin_pos (the bin the
+           sphere must be placed into) ;
+           LiftPegUpright: zeros (success = peg upright, implicit in slot 1
+           orientation, no goal site in the scene)
 
-Removed as redundant (27 dims across the 5 tasks):
-  tcp_to_obj_pos, obj_to_goal_pos, tcp_to_cubeA_pos, tcp_to_cubeB_pos,
-  cubeA_to_cubeB_pos, tcp_to_peg_pos, peg_to_cube_pos, cube_to_goal_pos,
-  peghead_to_cube_pos, is_grasped (inferable from gripper qpos).
+Removed as redundant:
+  tcp_to_obj_pos, is_grasped (inferable from gripper qpos).
+  Both are linear differences / functions of the absolute poses (zero new
+  information); PushCube/PullCube contain ZERO relative vectors and train
+  to 100% SR.
 All ABSOLUTE poses (tcp / object / goal) are KEPT - the scene is localized
 exclusively by these, and they are untouched.
 """
@@ -41,11 +44,11 @@ AGENT_DIM = 18
 
 # Per-task slot binding. Key names must match _get_obs_extra in the task sources.
 SLOT_LAYOUT = {
-    "PushCube-v1":  {"slot1": "obj_pose",   "slot2": None,         "goal": "goal_pos"},
-    "PullCube-v1":  {"slot1": "obj_pose",   "slot2": None,         "goal": "goal_pos"},
-    "PickCube-v1":  {"slot1": "obj_pose",   "slot2": None,         "goal": "goal_pos"},
-    "StackCube-v1": {"slot1": "cubeA_pose", "slot2": "cubeB_pose", "goal": None},
-    "PokeCube-v1":  {"slot1": "cube_pose",  "slot2": "peg_pose",   "goal": "poke_reconstruct"},
+    "PushCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
+    "PullCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
+    "PickCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
+    "LiftPegUpright-v1":  {"slot1": "obj_pose",  "slot2": None, "goal": None},
+    "PlaceSphere-v1":     {"slot1": "obj_pose",  "slot2": None, "goal": "bin_pos"},
 }
 
 # Every extra key the five tasks can emit. Anything else is treated as agent
@@ -53,9 +56,7 @@ SLOT_LAYOUT = {
 EXTRA_KEYS = {
     "tcp_pose", "goal_pos", "obj_pose", "is_grasped",
     "tcp_to_obj_pos", "obj_to_goal_pos",
-    "cubeA_pose", "cubeB_pose", "tcp_to_cubeA_pos", "tcp_to_cubeB_pos", "cubeA_to_cubeB_pos",
-    "cube_pose", "peg_pose", "tcp_to_peg_pos", "peg_to_cube_pos",
-    "cube_to_goal_pos", "peghead_to_cube_pos",
+    "bin_pos",
 }
 
 
@@ -113,15 +114,11 @@ def build_unified_obs(obs, cfg):
     if cfg["slot2"] is not None:
         u[32:39] = _take(flat, cfg["slot2"], 7)
 
-    # [39:42] goal position
-    if cfg["goal"] == "goal_pos":
-        u[39:42] = _take(flat, "goal_pos", 3)
-    elif cfg["goal"] == "poke_reconstruct":
-        # PokeCube never exposes goal_region xyz directly; recover it from the
-        # (otherwise discarded) relative vector: goal = cube + (goal - cube).
-        cube_xyz = _take(flat, "cube_pose", 7)[:3]
-        u[39:42] = cube_xyz + _take(flat, "cube_to_goal_pos", 3)
-    # StackCube: goal slot stays zero (target = on top of cubeB, already in slot 2)
+    # [39:42] goal position: cfg["goal"] names the extra key holding the goal
+    # xyz; None means the task has no goal site (LiftPegUpright: success is the
+    # peg's own upright orientation, already encoded in slot 1) -> zeros.
+    if cfg["goal"] is not None:
+        u[39:42] = _take(flat, cfg["goal"], 3)
     return u
 
 
@@ -182,9 +179,6 @@ def build_unified_obs_batch(obs, cfg):
     u[:, 25:32] = flat[cfg["slot1"]].reshape(n_envs, -1)[:, :7]
     if cfg["slot2"] is not None:
         u[:, 32:39] = flat[cfg["slot2"]].reshape(n_envs, -1)[:, :7]
-    if cfg["goal"] == "goal_pos":
-        u[:, 39:42] = flat["goal_pos"].reshape(n_envs, -1)[:, :3]
-    elif cfg["goal"] == "poke_reconstruct":
-        cube_xyz = flat["cube_pose"].reshape(n_envs, -1)[:, :3]
-        u[:, 39:42] = cube_xyz + flat["cube_to_goal_pos"].reshape(n_envs, -1)[:, :3]
+    if cfg["goal"] is not None:
+        u[:, 39:42] = flat[cfg["goal"]].reshape(n_envs, -1)[:, :3]
     return u
