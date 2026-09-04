@@ -1,118 +1,112 @@
 # ManiSkill3 Continual Learning
 
-Continual Learning experiments on [ManiSkill3](https://www.maniskill.ai/) manipulation tasks, focusing on **Experience Replay (ER)** as the primary method per advisor direction, with **parameter isolation / adapter methods** (Route A) as ablation studies.
+Continual Learning (CL) experiments on [ManiSkill3](https://www.maniskill.ai/) manipulation tasks.
 
-## Task Suite
+Current stage (per advisor plan): **unified observation interface → single-task RL baselines → continual learning**. Stage 2 is now complete: all 4 tasks reach **100% success rate** under the unified 42-dim observation with the *unmodified* official PPO algorithm.
 
-Five ManiSkill3 tasks using the Panda robot with `pd_joint_delta_pos` controller:
+## Unified 42-dim Observation Interface
 
-| Task | Obs Dim | Action Dim | Description |
-|------|---------|------------|-------------|
-| PickCube-v1 | 42 | 8 | Pick up a cube and move it to target |
-| PushCube-v1 | 42 | 8 | Push cube to target position |
-| StackCube-v1 | 42 | 8 | Stack one cube on top of another |
-| PokeCube-v1 | 54 | 8 | Poke cube with tool (different obs space) |
-| PullCube-v1 | 42 | 8 | Pull cube toward robot |
+The ManiSkill3 Panda tasks ship with different raw state dimensions (Push/Pull 35, Pick 42, LiftPegUpright 32). Rather than learning a mapping layer (which cost ~30 pp of single-task SR in earlier experiments), observations are aligned **by physical meaning** into fixed semantic slots:
 
-## Single-Task Baselines (PPO)
+```
+[ 0:18]  agent proprioception   Panda qpos(9) + qvel(9)        — identical across tasks
+[18:25]  tcp_pose               end-effector xyz + quaternion (7)
+[25:32]  object SLOT 1          primary manipulated object pose (7)
+[32:39]  object SLOT 2          second object / tool (reserved; zeros)
+[39:42]  goal_pos               goal xyz (3; zeros if task has no goal site)
+```
 
-| Task | Success Rate | Training | Checkpoint |
-|------|-------------|----------|------------|
-| PickCube-v1 | **100%** | SB3 PPO, 5M steps | `~/.maniskill/demos/PickCube-v1/rl/` |
-| PushCube-v1 | **100%** | SB3 PPO, 3M steps | `~/.maniskill/demos/PushCube-v1/rl/` |
-| StackCube-v1 | **75%** | Official ckpt + Tanh fix (20 eval eps) | `~/.maniskill/demos/StackCube-v1/rl/` |
-| PokeCube-v1 | **92%** | Official ckpt (pd_joint_delta_pos) | `~/.maniskill/demos/PokeCube-v1/rl/` |
-| PullCube-v1 | **100%** | Official ckpt (pd_joint_delta_pos) | `~/.maniskill/demos/PullCube-v1/rl/` |
+Design decisions:
+- **Relative vectors removed** (`tcp_to_obj_pos`, `obj_to_goal_pos`, `is_grasped`): they are linear differences / functions of absolute poses — zero new information. PushCube/PullCube contain no relative vectors natively and both train to 100% SR.
+- **All absolute poses kept** (tcp / object / goal): the scene is localized exclusively by these.
+- Slots with no corresponding object are zero-padded; slot semantics stay identical across tasks.
+
+Implementation: `cl/unified_obs.py` (`build_unified_obs_batch`).
+
+## Task Suite (4 tasks)
+
+All tasks use the Panda robot, `pd_joint_delta_pos` controller, state observations.
+
+| Task | Raw obs dim | Episode steps | Skill |
+|------|------------|---------------|-------|
+| PushCube-v1 | 35 | 50 | Push cube to target |
+| PullCube-v1 | 35 | 50 | Pull cube toward robot |
+| PickCube-v1 | 42 | 50 | Pick up cube and move to target |
+| LiftPegUpright-v1 | 32 | 50 | Reorient a lying peg upright |
+
+### Why 4 tasks (CPU compute boundary)
+
+Training runs on **CPU (16 vectorized envs, AMD RX 7600, no CUDA)**. Two-stage / multi-body contact tasks do not converge under this budget:
+
+| Excluded task | Steps tried | Best SR | Note |
+|---------------|------------|---------|------|
+| StackCube-v1 | 10M | 0% | two-cube precise alignment |
+| PokeCube-v1 | 8.8M (GPU) | ~10% | tool-use, two-stage |
+| PlaceSphere-v1 | 2M | 0% | pick-and-place into bin |
+| PullCubeTool-v1 | 10M | 12.5% (1/8 eval, luck) | L-tool hooking + pulling |
+
+Reference: GTP-FA (arXiv:2606.03385) reports these tasks need 50M steps × 2048 envs on 2× RTX 4090. The failure is a compute-budget issue, not an observation-interface issue — reward curves rise but the full contact chain is never learned reliably.
+
+## Single-Task Baselines (official PPO, zero algorithm changes)
+
+Script: `cl/ppo_official_unified.py` — a fork of the official `examples/baselines/ppo/ppo.py` with **only** the 42-dim obs conversion inserted; algorithm, hyperparameters and network architecture are untouched. CPU adaptation: 16 envs, 512 rollout steps (batch 8192).
+
+| Task | Training steps | Best SR |
+|------|---------------|---------|
+| PushCube-v1 | 2M | **100%** |
+| PullCube-v1 | 2M | **100%** |
+| PickCube-v1 | 5.12M (converged within 10M run) | **100%** |
+| LiftPegUpright-v1 | 2M | **100%** |
+
+Checkpoints: `cl/ckpts/ppo_official_unified/{env}_seed1_{latest,final}.pt`, results in `{env}_seed1_results.json`.
+
+### Reproduce
+
+```powershell
+conda activate diffcl10
+cd cl
+python ppo_official_unified.py --env-id PushCube-v1       --total-timesteps 2000000
+python ppo_official_unified.py --env-id PullCube-v1       --total-timesteps 2000000
+python ppo_official_unified.py --env-id PickCube-v1       --total-timesteps 10000000
+python ppo_official_unified.py --env-id LiftPegUpright-v1 --total-timesteps 2000000
+```
+
+## Next Stage: Continual Learning
+
+With single-task baselines established, the CL phase compares:
+- **SeqFT** — sequential fine-tuning (catastrophic forgetting baseline)
+- **ER** — Experience Replay: replay buffer of previous-task transitions mixed into PPO updates (primary method per advisor direction)
+- Parameter isolation / adapter ablations (earlier Route A experiments in `experiments/route_a/`)
+
+CL entry point: `cl/ppo_er_unified.py` (built on the same unified 42-dim interface).
 
 ## Project Structure
 
 ```
 maniskill-cl/
-├── baselines/                    # Single-task PPO training & evaluation
-│   ├── official_ppo.py           # Official PPO training script
-│   ├── train_pickcube_ppo_v2.py  # PickCube SB3 PPO
-│   ├── train_pushcube_ppo_v2.py  # PushCube SB3 PPO
-│   ├── train_stackcube_ppo_v3.py # StackCube PPO
-│   └── eval_*.py                 # Evaluation scripts
-│
-├── cl/                           # Continual Learning framework (ER focus)
-│   ├── cl_methods.py             # SeqFT, ER, DISTR method implementations
-│   ├── cl_comparison.py          # Multi-method comparison runner
-│   ├── env_wrapper.py            # Multi-task env wrapper & observation unification
-│   ├── bc_agent.py               # Behavior cloning agent for expert demos
-│   ├── config.py                 # Configuration
-│   ├── main.py                   # Entry point
-│   ├── evaluate.py               # Evaluation utilities
-│   ├── scripted_experts.py       # Scripted expert policies
-│   ├── train_bc_experts.py       # BC expert training
-│   ├── results/                  # CL experiment results
-│   └── README.md                 # CL framework documentation
-│
-├── experiments/
-│   └── route_a/                  # Parameter isolation / adapter experiments
-│       ├── train_cl_route_a_v5.py    # Full fine-tune (catastrophic forgetting)
-│       ├── train_cl_route_a_v7.py    # Fresh head without freezing
-│       ├── train_cl_route_a_v8.py    # Frozen backbone + task-specific heads
-│       ├── train_cl_route_a_v9.py    # LoRA rank=8 adapters
-│       ├── train_cl_route_a_v10.py   # LoRA rank=16 adapters
-│       ├── train_cl_route_a_v11.py   # Per-task input encoder + LoRA
-│       ├── diag_pickcube_54dim.py    # Zero-padding diagnosis
-│       └── results/                  # JSON result files
-│
-└── docs/
-    └── PROGRESS_REPORT.md        # Detailed progress report
+├── cl/
+│   ├── unified_obs.py            # 42-dim semantic-slot observation interface
+│   ├── ppo_official_unified.py   # Official PPO + unified obs (single-task baselines)
+│   ├── ppo_er_unified.py         # PPO + Experience Replay (CL phase)
+│   ├── cl_methods.py             # SeqFT / ER / DISTR method implementations
+│   ├── env_wrapper.py            # Multi-task env wrapper
+│   ├── config.py
+│   ├── main.py
+│   ├── evaluate.py
+│   └── ckpts/                    # trained checkpoints & results json
+├── baselines/                    # earlier single-task PPO scripts
+├── experiments/route_a/          # parameter isolation / LoRA ablation experiments
+└── docs/PROGRESS_REPORT.md
 ```
 
-## Environment Setup
+## Environment
 
 ```powershell
-# Conda environment (Python 3.10)
-conda activate diffcl10
-
-# Key dependencies
-pip install mani_skill stable-baselines3 torch numpy gymnasium
-
-# Download demonstrations (for BC / ER buffer initialization)
-python -m mani_skill.utils.download_demo PickCube-v1
-python -m mani_skill.utils.download_demo PushCube-v1
-python -m mani_skill.utils.download_demo StackCube-v1
-python -m mani_skill.utils.download_demo PokeCube-v1
-python -m mani_skill.utils.download_demo PullCube-v1
+conda activate diffcl10   # Python 3.10, ManiSkill3, torch (CPU), gymnasium
 ```
-
-**Note:** Training runs on CPU (AMD RX 7600, no CUDA). For faster training, use a GPU machine with the official ManiSkill3 PPO implementation.
-
-## Route A: Parameter Isolation Experiments
-
-Starting from the official PokeCube-v1 checkpoint (92% SR), we transfer to PickCube-v1 while preserving PokeCube performance. The observation dimension mismatch (PokeCube 54-dim vs PickCube 42-dim) is handled via zero-padding, except v11 which uses per-task input encoders.
-
-| Version | Strategy | PokeCube SR | PickCube SR | PickCube avg_R | Key Finding |
-|---------|----------|-------------|-------------|----------------|-------------|
-| v5 | Full fine-tune | 92% | 0% | — | Policy collapse at 5.5M steps |
-| v6 | Low LR full FT | 95% | 0% | 1.15 | Locked into poking behavior |
-| v7 | Fresh head, no freeze | 0% (forgot) | 0% | 24.5 | Features overwritten, early stop |
-| v8 | Frozen backbone + head | 95% | 0% | 8.64 | Features too rigid |
-| v9 | LoRA rank=8 | 95% | 0% | 20.31 | LoRA helps but insufficient |
-| v10 | LoRA rank=16 | 90% | 0% | 19.81 | Higher rank no improvement |
-| v11 | Per-task encoder + LoRA | 75–90% | **best 5%** | 24.14 | First non-zero SR, but unstable |
-
-### Key Conclusions
-
-1. **Zero-padding observation mismatch** significantly hinders transfer — v11's per-task encoder was the first approach to achieve any PickCube success.
-2. **Poking and grasping require fundamentally different movement patterns.** Low-rank adapters (LoRA) cannot decouple these from a frozen poking-centric feature space.
-3. **Parameter isolation alone is insufficient** for RL tasks with conflicting motor patterns, motivating the Experience Replay (ER) approach as the primary CL method.
-
-## Current Focus: Experience Replay (ER)
-
-Per advisor direction (2026-07-20 meeting), the primary focus is implementing and evaluating **Experience Replay** on ManiSkill3:
-
-- Maintain a replay buffer of transitions from previous tasks
-- Mix replay samples with current task data during PPO updates
-- Evaluate forward transfer and backward transfer across the 5-task sequence
-- Compare against Sequential Fine-Tuning (SeqFT) baseline
 
 ## References
 
 - [ManiSkill3](https://www.maniskill.ai/) — Benchmark for generalizable manipulation
 - [TAIL (ICLR 2024)](https://arxiv.org/abs/2310.05905) — Task-Aware Incremental Learning
-- [TAILS](https://arxiv.org/abs/2608.16345) — Task-Aware Incremental Learning for Robotics
+- GTP-FA (arXiv:2606.03385) — GPU-scale PPO reference results on ManiSkill task suite
