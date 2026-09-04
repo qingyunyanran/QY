@@ -1,142 +1,56 @@
-# ManiSkill Continual Learning Framework
+# cl/ — Unified-Observation PPO & Continual Learning
 
-持续学习框架在 ManiSkill 平台上的实现，对比 SeqFT/ER/EWC 方法在机器人操作任务上的抗遗忘能力。
+This package implements the ManiSkill3 continual-learning pipeline on a **unified 42-dim observation interface**. All scripts use CPU vectorized environments (16 envs, `pd_joint_delta_pos`, state observations).
 
-## 项目结构
+## Core files
 
-```
-continual_learning_v2/
-├── cl_comparison.py              # 主 CL 对比实验脚本（SeqFT/ER/EWC + DAgger）
-├── train_bc_experts.py           # BC 专家训练脚本
-├── scripted_experts.py           # 脚本化专家实现
-├── train_pushcube_ppo_v2.py      # PushCube PPO v2 训练脚本
-├── train_pickcube_ppo_v2.py      # PickCube PPO v2 训练脚本
-├── verify_pickcube_ppo_v2.py     # PickCube PPO v2 验证脚本
-├── render_all_videos.py          # 渲染所有任务的专家视频
-├── analyze_training_logs.py      # 分析 TensorBoard 训练日志
-│
-├── expert_models/                # 训练好的专家模型
-│   ├── PushCube-v1/
-│   │   ├── PushCube-v1_sb3_ppo.zip      # PPO 模型（100% 成功率）
-│   │   ├── PushCube-v1_bc_expert.pt     # BC 模型
-│   │   ├── vec_normalize.pkl            # 观测归一化参数
-│   │   └── tb_logs/                     # TensorBoard 日志
-│   ├── PickCube-v1/
-│   │   ├── PickCube-v1_sb3_ppo.zip      # PPO 模型（训练中）
-│   │   ├── PickCube-v1_bc_expert.pt     # BC 模型（100% 成功率）
-│   │   └── tb_logs/
-│   ├── StackCube-v1/
-│   │   ├── StackCube-v1_bc_expert.pt    # BC 模型（85% 成功率）
-│   │   └── tb_logs/
-│   └── PegInsertionSide-v1/
-│       └── PegInsertionSide-v1_bc_expert.pt  # BC 模型（79% 成功率）
-│
-└── videos/                       # 渲染的专家策略视频（生成后）
-```
+| File | Role |
+|------|------|
+| `unified_obs.py` | **42-dim semantic-slot observation interface.** Maps each task's raw state dict into fixed slots by physical meaning: `[0:18]` Panda proprioception, `[18:25]` tcp_pose, `[25:32]` primary object, `[32:39]` second object/tool (reserved, zeros), `[39:42]` goal_pos. Relative vectors (`tcp_to_obj_pos`, `obj_to_goal_pos`, `is_grasped`) are dropped — they are linear functions of absolute poses and carry no new information. |
+| `ppo_official_unified.py` | **Single-task trainer.** A fork of the official ManiSkill3 `examples/baselines/ppo/ppo.py` with *only* the 42-dim obs conversion inserted — algorithm, hyperparameters and network are untouched. Contains `MultiSingleEnvVector`, a CPU vectorization wrapper that stacks N `num_envs=1` environments (needed because several tasks do not support native batched sim on CPU). |
+| `ppo_er_unified.py` | **Continual-learning trainer (next stage).** PPO + Experience Replay on the same unified interface: maintains a replay buffer of previous-task transitions and mixes them into PPO updates. |
+| `cl_methods.py` | SeqFT / ER / DISTR method implementations. |
+| `env_wrapper.py` | Multi-task env wrapper. |
+| `config.py` | Configuration. |
+| `evaluate.py` | Evaluation utilities. |
+| `ckpts/ppo_official_unified/` | Single-task checkpoints: `{env}_seed1_{latest,final}.pt` and `{env}_seed1_results.json`. |
 
-## 任务说明
+## Task suite
 
-| 任务 | 描述 | 单任务成功率 | RL训练状态 |
-|------|------|------------|-----------|
-| PushCube-v1 | 推动立方体到目标位置 | 100% (PPO) | ✅ 完成 |
-| PickCube-v1 | 抓取立方体到目标位置 | 100% (BC) | ⚠️ PPO验证0% |
-| StackCube-v1 | 堆叠两个立方体 | 85% (BC) | ❌ RL失败 |
-| PegInsertionSide-v1 | 插入销钉 | 79% (MP replay) | ❌ RL失败 |
+| Task | Raw obs dim | Slot 1 | Slot 2 | Goal |
+|------|------------|--------|--------|------|
+| PushCube-v1 | 35 | cube (`obj_pose`) | zeros | `goal_pos` |
+| PullCube-v1 | 35 | cube (`obj_pose`) | zeros | `goal_pos` |
+| PickCube-v1 | 42 | cube (`obj_pose`) | zeros | `goal_pos` |
+| LiftPegUpright-v1 | 32 | peg (`obj_pose`) | zeros | zeros (success = peg upright, implicit in slot 1 orientation) |
 
-## 持续学习方法
+Tasks requiring two-stage / multi-body contact (StackCube-v1, PokeCube-v1, PlaceSphere-v1, PullCubeTool-v1) do not converge under the CPU 16-env budget (up to 10M steps tried; GPU references use 50M steps × 2048 envs) and are excluded from the suite.
 
-### 已实现
-- **SeqFT**：顺序微调（朴素方法）
-- **ER (Experience Replay)**：经验回放，维护 replay buffer
-- **EWC (Elastic Weight Consolidation)**：弹性权重巩固
-- **DAgger**：在线模仿学习聚合
+## Single-task results (official PPO, zero algorithm changes)
 
-### 当前配置
-```python
-MAX_OBS_DIM = 48          # 最大观测维度
-TASK_ID_DIM = 3           # 任务 one-hot 编码维度
-ACTION_DIM = 7            # 动作维度
-HIDDEN_DIM = 512          # 隐藏层维度
-CL_EPOCHS = 200           # CL 训练轮数
-CL_BATCH_SIZE = 256       # 批量大小
-CL_LR = 1e-3              # 学习率
-ER_BUFFER_SIZE = 5000     # ER replay buffer 大小
-EWC_LAMBDA = 100.0        # EWC 正则化强度
-n_demos per task = 200    # 每个任务的演示数量
-```
+| Task | Steps | Best SR |
+|------|-------|---------|
+| PushCube-v1 | 2M | **100%** |
+| PullCube-v1 | 2M | **100%** |
+| PickCube-v1 | 5.12M (within 10M run) | **100%** |
+| LiftPegUpright-v1 | 2M | **100%** |
 
-## 运行实验
+## Usage
 
-### 1. 渲染专家视频（分析任务表现）
 ```powershell
-$env:KMP_DUPLICATE_LIB_OK = "TRUE"
-cd E:\munichi\continual_learning_v2
-& "E:\My_programs\anaconda\envs\diffcl10\python.exe" render_all_videos.py
-```
-
-### 2. 分析训练日志（诊断 RL 失败原因）
-```powershell
-$env:KMP_DUPLICATE_LIB_OK = "TRUE"
-cd E:\munichi\continual_learning_v2
-& "E:\My_programs\anaconda\envs\diffcl10\python.exe" analyze_training_logs.py
-```
-
-### 3. 运行 CL 对比实验
-```powershell
-$env:KMP_DUPLICATE_LIB_OK = "TRUE"
-cd E:\munichi\continual_learning_v2
-# 完整实验（20 episodes evaluation）
-& "E:\My_programs\anaconda\envs\diffcl10\python.exe" cl_comparison.py --eval-eps 20
-
-# 快速测试（10 episodes evaluation）
-& "E:\My_programs\anaconda\envs\diffcl10\python.exe" cl_comparison.py --eval-eps 10 --quick
-```
-
-## 最新实验结果
-
-### CL 对比实验（PPO PushCube + 脚本化 PickCube/StackCube）
-| 策略 | PushCube-v1 | PickCube-v1 | StackCube-v1 | Average | Forget |
-|------|-------------|-------------|--------------|---------|--------|
-| SeqFT | 0.0% | 0.0% | 0.0% | 0.0% | 57.5% |
-| ER | 55.0% | 5.0% | 20.0% | 26.7% | 22.5% |
-| EWC | 0.0% | 0.0% | 5.0% | 1.7% | 65.0% |
-
-**分析**：
-- SeqFT 完全失败：所有任务 0%，说明模型严重灾难性遗忘
-- ER 表现最好：平均 26.7%，遗忘率 22.5%
-- EWC 效果差：平均仅 1.7%
-
-## 待解决问题
-
-1. **PickCube PPO v2 验证 0%**：训练指标正常但策略完全失败
-2. **StackCube/PegInsertionSide RL 训练失败**：成功率始终 0%
-3. **ER 方法改进**：导师建议只测 ER 并改通
-
-## 环境要求
-
-- Python 3.10
-- PyTorch (CPU version)
-- ManiSkill
-- Stable-Baselines3
-- Gymnasium
-- imageio (视频渲染)
-
-### 安装
-```bash
-conda create -n diffcl10 python=3.10
 conda activate diffcl10
-pip install mani_skill stable_baselines3 gymnasium torch imageio
+
+# Single-task training
+python ppo_official_unified.py --env-id PushCube-v1       --total-timesteps 2000000
+python ppo_official_unified.py --env-id PullCube-v1       --total-timesteps 2000000
+python ppo_official_unified.py --env-id PickCube-v1       --total-timesteps 10000000
+python ppo_official_unified.py --env-id LiftPegUpright-v1 --total-timesteps 2000000
 ```
 
-## 参考资源
+CPU settings: `num_envs=16`, `num_eval_envs=8`, `num_steps=512` (batch 8192, minibatch 256), `sim_backend="cpu"`, `obs_mode="state_dict"`, default `normalized_dense` reward. Throughput ≈ 120–190 sps depending on task.
 
-- [ManiSkill 官方文档](https://maniskill.readthedocs.io/)
-- [ContinualWorld 论文](https://arxiv.org/abs/2305.15164)
-- [Stable-Baselines3 文档](https://stable-baselines3.readthedocs.io/)
+## Design constraints (per advisor)
 
-## 更新日志
-
-- 2026-07-20: 创建项目结构，完成 CL 框架实现
-- 2026-07-20: PushCube PPO v2 训练完成（5M steps）
-- 2026-07-20: PickCube PPO v2 训练完成（5M steps，验证中）
-- 2026-07-20: 完整 CL 对比实验完成
+- Only the observation input/output interface may change (dim extraction, zero-padding, strict slot alignment). Algorithm and hyperparameters are not modified.
+- Any added layer must come with a statement of how it is trained.
+- Every version is pushed to GitHub.

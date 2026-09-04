@@ -1,5 +1,7 @@
 # ManiSkill3 Continual Learning
 
+**English** | [中文](README_zh.md)
+
 Continual Learning (CL) experiments on [ManiSkill3](https://www.maniskill.ai/) manipulation tasks.
 
 Current stage (per advisor plan): **unified observation interface → single-task RL baselines → continual learning**. Stage 2 is now complete: all 4 tasks reach **100% success rate** under the unified 42-dim observation with the *unmodified* official PPO algorithm.
