@@ -74,6 +74,20 @@ def parse_args():
     p.add_argument("--num-eval-envs", type=int, default=8)
     p.add_argument("--num-steps", type=int, default=512)
     p.add_argument("--eval-freq", type=int, default=25, help="in iterations")
+    # CLI overrides for PPO hyperparameters. Defaults are EXACTLY the official
+    # ppo.py code defaults (gamma=0.8, gae_lambda=0.9, update_epochs=4).
+    # The official baselines.sh tunes these PER TASK for hard tasks, e.g.
+    #   PushT:           --gamma 0.99
+    #   RollBall:        --gamma 0.95
+    #   PegInsertionSide:--gamma 0.97 --gae-lambda 0.95
+    p.add_argument("--gamma", type=float, default=0.8)
+    p.add_argument("--gae-lambda", type=float, default=0.9)
+    p.add_argument("--update-epochs", type=int, default=4)
+    p.add_argument("--raw-state", action="store_true",
+                   help="use the env's native flat state obs (obs_mode='state'), "
+                        "bypassing the 42-dim unified interface. For probing "
+                        "whether a task is learnable at all before adapting "
+                        "unified_obs.py.")
     return p.parse_args()
 
 
@@ -98,13 +112,15 @@ class MultiSingleEnvVector:
         every episode runs the full horizon and only truncation resets).
     """
 
-    def __init__(self, envs, cfg, ignore_terminations=False, record_metrics=True):
+    def __init__(self, envs, cfg, ignore_terminations=False, record_metrics=True,
+                 raw_state=False):
         self.envs = envs
         self._env = envs[0]  # for gym_utils.find_max_episode_steps_value
         self.cfg = cfg
         self.num_envs = len(envs)
         self.ignore_terminations = ignore_terminations
         self.record_metrics = record_metrics
+        self.raw_state = raw_state
         self.spec = envs[0].spec
 
         # gymnasium>=1.0 wrappers do not proxy non-standard attributes through
@@ -112,8 +128,14 @@ class MultiSingleEnvVector:
         # ManiSkillVectorEnv does).
         self.single_action_space = envs[0].get_wrapper_attr("single_action_space")
         self.action_space = self.single_action_space
+        if raw_state:
+            # native flat state obs; dim taken from the env's own space
+            obs_dim = int(np.prod(envs[0].get_wrapper_attr("single_observation_space").shape))
+        else:
+            obs_dim = UNIFIED_OBS_DIM
+        self.obs_dim = obs_dim
         self.single_observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(UNIFIED_OBS_DIM,), dtype=np.float32)
+            low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32)
         self.observation_space = self.single_observation_space
         self.max_episode_steps = gym_utils.find_max_episode_steps_value(envs[0])
 
@@ -123,7 +145,11 @@ class MultiSingleEnvVector:
         self.elapsed = torch.zeros(self.num_envs, dtype=torch.int32)
 
     def _convert(self, raw_obs):
-        # raw obs of one num_envs=1 env -> (1, 42)
+        # raw obs of one num_envs=1 env -> (1, obs_dim)
+        if self.raw_state:
+            x = raw_obs if torch.is_tensor(raw_obs) else torch.as_tensor(
+                raw_obs, dtype=torch.float32)
+            return x.float().reshape(1, -1)
         return build_unified_obs_batch(raw_obs, self.cfg)
 
     def reset(self, *, seed=None, options=None):
@@ -144,7 +170,7 @@ class MultiSingleEnvVector:
         rews = torch.zeros(self.num_envs, dtype=torch.float32)
         terms = torch.zeros(self.num_envs, dtype=torch.bool)
         truncs = torch.zeros(self.num_envs, dtype=torch.bool)
-        final_obs = torch.zeros((self.num_envs, UNIFIED_OBS_DIM), dtype=torch.float32)
+        final_obs = torch.zeros((self.num_envs, self.obs_dim), dtype=torch.float32)
 
         for i, env in enumerate(self.envs):
             obs, rew, term, trunc, info = env.step(action[i:i + 1])
@@ -265,10 +291,10 @@ if __name__ == "__main__":
     # ---- official hyperparameters (defaults from ppo.py) ----
     learning_rate = 3e-4
     anneal_lr = False
-    gamma = 0.8
-    gae_lambda = 0.9
+    gamma = args.gamma
+    gae_lambda = args.gae_lambda
     num_minibatches = 32
-    update_epochs = 4
+    update_epochs = args.update_epochs
     norm_adv = True
     clip_coef = 0.2
     clip_vloss = False
@@ -290,26 +316,29 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     device = torch.device("cpu")
 
+    obs_tag = "RAW native state obs" if args.raw_state else "unified 42-dim obs"
     print("=" * 70)
-    print(f"OFFICIAL PPO + unified 42-dim obs | task={args.env_id}")
+    print(f"OFFICIAL PPO + {obs_tag} | task={args.env_id}")
     print(f"steps={args.total_timesteps:,} envs={args.num_envs} "
           f"num_steps={args.num_steps} batch={batch_size} gamma={gamma} "
           f"lr={learning_rate} ent={ent_coef}")
     print("=" * 70)
 
     # ---- env setup (CPU adaptation: stacked num_envs=1 envs) ----
-    cfg = SLOT_LAYOUT[args.env_id]
+    cfg = None if args.raw_state else SLOT_LAYOUT[args.env_id]
+    obs_mode = "state" if args.raw_state else "state_dict"
 
     def _make_vec(num_envs, ignore_terminations, reconfiguration_freq):
         envs = []
         for _ in range(num_envs):
             envs.append(gym.make(
-                args.env_id, num_envs=1, obs_mode="state_dict",
+                args.env_id, num_envs=1, obs_mode=obs_mode,
                 control_mode=CONTROL_MODE, sim_backend="cpu",
                 reconfiguration_freq=reconfiguration_freq))
         return MultiSingleEnvVector(envs, cfg,
                                     ignore_terminations=ignore_terminations,
-                                    record_metrics=True)
+                                    record_metrics=True,
+                                    raw_state=args.raw_state)
 
     envs = _make_vec(args.num_envs,
                      ignore_terminations=not partial_reset,

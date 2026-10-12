@@ -4,8 +4,9 @@ Unified 42-dim observation interface for the ManiSkill3 CL benchmark.
 
 WHY
 ---
-The four Franka Panda tabletop tasks ship with different state-obs dims
-(Push/Pull 35, Pick 42, LiftPegUpright 32). The difference
+The tabletop tasks ship with different state-obs dims
+(Push/Pull 35, Pick 42, LiftPegUpright 32; PushT uses panda_stick with a
+14-dim proprioception block). The difference
 comes ONLY from the number of scene objects and convenience relative vectors
 (tcp_to_obj, obj_to_goal, ...). The relative vectors are linear differences
 of absolute poses (zero new information); PushCube and PullCube contain ZERO
@@ -15,7 +16,12 @@ observations BY PHYSICAL MEANING into fixed semantic slots.
 
 SLOT LAYOUT (42 dims, identical physical meaning in every task)
 --------------------------------------------------------------
-  [ 0:18] agent proprioception (Panda qpos/qvel/...)   - 4 tasks identical
+  [ 0:18] agent proprioception, laid out by physical meaning:
+             [0:9] qpos = 7 arm joints + 2 gripper joints
+             [9:18] qvel = same ordering
+          Panda tasks: 9-dim qpos/qvel; PushT uses panda_stick (no gripper):
+          7-dim qpos/qvel, gripper slots [7:9]/[16:18] zero-padded so the arm
+          joints keep identical positions across tasks.
   [18:25] tcp_pose          (7: xyz + quaternion)
   [25:32] object SLOT 1     (7): PRIMARY manipulated object
            Push/Pull/Pick: the cube ; LiftPegUpright: the peg
@@ -46,13 +52,30 @@ SLOT_LAYOUT = {
     "PullCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
     "PickCube-v1":        {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
     "LiftPegUpright-v1":  {"slot1": "obj_pose",  "slot2": None, "goal": None},
+    # PushT uses the panda_stick embodiment (no gripper): qpos/qvel are 7-dim
+    # instead of 9; the gripper slots [7:9]/[16:18] are zero-padded so the
+    # arm joints keep the same positions as in every other task.
+    "PushT-v1":           {"slot1": "obj_pose",  "slot2": None, "goal": "goal_pos"},
+    # Two-object / tool tasks (probe 2026-09-09):
+    # slot1 = PRIMARY target object (the thing that must end up right),
+    # slot2 = tool / second object (held peg, base cube, or L-tool).
+    # PokeCube: poke the free cube (slot1) with the held peg (slot2) to goal.
+    "PokeCube-v1":        {"slot1": "cube_pose", "slot2": "peg_pose",  "goal": "goal_pos"},
+    # StackCube: stack cubeA (slot1, carried) onto cubeB (slot2, base).
+    # No goal site: success is encoded in the slot1/slot2 relative pose.
+    "StackCube-v1":       {"slot1": "cubeA_pose","slot2": "cubeB_pose","goal": None},
+    # PullCubeTool: hook the cube (slot1) with the held L-shaped tool
+    # (slot2). No goal_pos key in obs (implicit target), horizon=100.
+    "PullCubeTool-v1":    {"slot1": "cube_pose", "slot2": "tool_pose", "goal": None},
 }
 
-# Every extra key the four tasks can emit. Anything else is treated as agent
-# proprioception (the 18-dim Panda state block).
+# Every extra key the adapted tasks can emit. Anything else is treated as
+# agent proprioception (the 18-dim Panda state block).
 EXTRA_KEYS = {
     "tcp_pose", "goal_pos", "obj_pose", "is_grasped",
     "tcp_to_obj_pos", "obj_to_goal_pos",
+    # two-object / tool tasks
+    "cube_pose", "peg_pose", "cubeA_pose", "cubeB_pose", "tool_pose",
 }
 
 
@@ -91,14 +114,24 @@ def build_unified_obs(obs, cfg):
     flat = _flatten_obs(obs)
     u = np.zeros(UNIFIED_OBS_DIM, dtype=np.float32)
 
-    # [0:18] agent proprioception = everything that is not a task extra key
-    agent_parts = [v for k, v in flat.items() if k not in EXTRA_KEYS]
-    assert agent_parts, f"no agent keys found in obs: {sorted(flat.keys())}"
-    agent_vec = np.concatenate(agent_parts).astype(np.float32)
-    assert agent_vec.shape[0] == AGENT_DIM, (
-        f"agent proprioception dim {agent_vec.shape[0]} != {AGENT_DIM}; "
-        f"non-extra keys: {[k for k in flat if k not in EXTRA_KEYS]}")
-    u[0:18] = agent_vec
+    # [0:18] agent proprioception, laid out by physical meaning:
+    #   [0:9]  qpos (7 arm joints + 2 gripper joints; gripper slots zero-padded)
+    #   [9:18] qvel (same ordering)
+    # Panda tasks have 9-dim qpos/qvel; panda_stick tasks (PushT) have 7-dim
+    # qpos/qvel and no gripper -> arm joints stay in [0:7]/[9:16], gripper
+    # slots stay zero.
+    assert "qpos" in flat and "qvel" in flat, (
+        f"obs missing 'qpos'/'qvel', available: {sorted(flat.keys())}")
+    qpos = flat["qpos"]
+    qvel = flat["qvel"]
+    n_arm = min(qpos.shape[0], 7)
+    assert n_arm == min(qvel.shape[0], 7), "qpos/qvel arm-dim mismatch"
+    u[0:n_arm] = qpos[:n_arm]
+    if qpos.shape[0] >= 9:  # full Panda (7 arm + 2 gripper)
+        u[7:9] = qpos[7:9]
+    u[9:9 + n_arm] = qvel[:n_arm]
+    if qvel.shape[0] >= 9:
+        u[16:18] = qvel[7:9]
 
     # [18:25] tcp pose (all tasks)
     u[18:25] = _take(flat, "tcp_pose", 7)
@@ -163,13 +196,21 @@ def build_unified_obs_batch(obs, cfg):
     n_envs = next(iter(flat.values())).shape[0]
     u = torch.zeros((n_envs, UNIFIED_OBS_DIM), dtype=torch.float32)
 
-    agent_parts = [v.reshape(n_envs, -1) for k, v in flat.items() if k not in EXTRA_KEYS]
-    assert agent_parts, f"no agent keys found in batched obs: {sorted(flat.keys())}"
-    agent_vec = torch.cat(agent_parts, dim=1)
-    assert agent_vec.shape[1] == AGENT_DIM, (
-        f"agent proprioception dim {agent_vec.shape[1]} != {AGENT_DIM}; "
-        f"non-extra keys: {[k for k in flat if k not in EXTRA_KEYS]}")
-    u[:, 0:18] = agent_vec
+    # agent block laid out by physical meaning (see build_unified_obs comment):
+    # [0:9] qpos (7 arm + 2 gripper; gripper zero-padded for panda_stick),
+    # [9:18] qvel same ordering.
+    assert "qpos" in flat and "qvel" in flat, (
+        f"batched obs missing 'qpos'/'qvel', available: {sorted(flat.keys())}")
+    qpos = flat["qpos"].reshape(n_envs, -1)
+    qvel = flat["qvel"].reshape(n_envs, -1)
+    n_arm = min(qpos.shape[1], 7)
+    assert n_arm == min(qvel.shape[1], 7), "qpos/qvel arm-dim mismatch"
+    u[:, 0:n_arm] = qpos[:, :n_arm]
+    if qpos.shape[1] >= 9:  # full Panda (7 arm + 2 gripper)
+        u[:, 7:9] = qpos[:, 7:9]
+    u[:, 9:9 + n_arm] = qvel[:, :n_arm]
+    if qvel.shape[1] >= 9:
+        u[:, 16:18] = qvel[:, 7:9]
 
     u[:, 18:25] = flat["tcp_pose"].reshape(n_envs, -1)[:, :7]
     u[:, 25:32] = flat[cfg["slot1"]].reshape(n_envs, -1)[:, :7]
