@@ -58,8 +58,22 @@ import mani_skill.envs
 from mani_skill.utils import gym_utils
 
 from unified_obs import UNIFIED_OBS_DIM, SLOT_LAYOUT, build_unified_obs_batch
+from vec_env import GpuSingleVec
 
 CONTROL_MODE = "pd_joint_delta_pos"
+
+# Task-specific episode horizon. The registered default for the tabletop tasks
+# is 50 steps; StackCube is given 100 so it matches the CL sequence and the
+# TD-MPC2 0.75 measurement.
+MAX_EPISODE_STEPS = {"StackCube-v1": 100}
+
+# Rollout shape per backend. The official baseline runs 512 envs x 50 steps
+# (batch 25,600); the CPU port substitutes 16 x 512 (batch 8,192) because
+# ManiSkill cannot run parallel sims on the CPU backend in one process.
+ROLLOUT_GPU = {"num_envs": 512, "num_steps": 50}
+ROLLOUT_CPU = {"num_envs": 16, "num_steps": 512}
+EVAL_ENVS_GPU = 128
+EVAL_ENVS_CPU = 8
 
 CKPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ckpts", "ppo_official_unified")
 os.makedirs(CKPT_DIR, exist_ok=True)
@@ -70,9 +84,16 @@ def parse_args():
     p.add_argument("--env-id", type=str, default="PushCube-v1")
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--total-timesteps", type=int, default=2_000_000)
-    p.add_argument("--num-envs", type=int, default=16)
-    p.add_argument("--num-eval-envs", type=int, default=8)
-    p.add_argument("--num-steps", type=int, default=512)
+    p.add_argument("--num-envs", type=int, default=None,
+                   help="Rollout envs (default: 512 on gpu, 16 on cpu)")
+    p.add_argument("--num-eval-envs", type=int, default=None,
+                   help="Parallel eval envs (default: 128 on gpu, 8 on cpu)")
+    p.add_argument("--num-steps", type=int, default=None,
+                   help="Rollout steps per env (default: 50 on gpu, 512 on cpu)")
+    p.add_argument("--sim-backend", choices=["auto", "gpu", "cpu"], default="auto",
+                   help="Physics backend. 'gpu' = one CUDA env with N parallel sims "
+                        "(official setup); 'cpu' = N stacked single CPU sims. "
+                        "SAPIEN has no ROCm backend, so AMD GPUs always fall back to cpu.")
     p.add_argument("--eval-freq", type=int, default=25, help="in iterations")
     # CLI overrides for PPO hyperparameters. Defaults are EXACTLY the official
     # ppo.py code defaults (gamma=0.8, gae_lambda=0.9, update_epochs=4).
@@ -88,6 +109,21 @@ def parse_args():
                         "bypassing the 42-dim unified interface. For probing "
                         "whether a task is learnable at all before adapting "
                         "unified_obs.py.")
+    p.add_argument("--run-tag", type=str, default="",
+                   help="suffix appended to checkpoint / results filenames, e.g. "
+                        "--run-tag smoke. Use it for test runs so the real "
+                        "baseline artifacts are never overwritten.")
+    p.add_argument("--obs-norm", action="store_true",
+                   help="normalise state obs with a running mean/std. Long-horizon "
+                        "tasks (StackCube) failed to leave the reach stage for 10M "
+                        "steps without it.")
+    p.add_argument("--ent-coef", type=float, default=0.0,
+                   help="entropy bonus coefficient (official default 0.0)")
+    p.add_argument("--lr", type=float, default=3e-4,
+                   help="learning rate; lower it when fine-tuning a warm-started policy")
+    p.add_argument("--init-ckpt", type=str, default="",
+                   help="state_dict to warm-start from (absolute path, or a filename "
+                        "inside CKPT_DIR); used to PPO-fine-tune a BC-distilled policy")
     return p.parse_args()
 
 
@@ -238,6 +274,32 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
+class RunningMeanStd:
+    """逐维 running mean/std（Welford 并行合并），用于 state obs 归一化。"""
+
+    def __init__(self, dim, device, epsilon=1e-4):
+        self.mean = torch.zeros(dim, device=device)
+        self.var = torch.ones(dim, device=device)
+        self.count = torch.tensor(float(epsilon), device=device)
+
+    @torch.no_grad()
+    def update(self, x):
+        batch_mean = x.mean(dim=0)
+        batch_var = x.var(dim=0, unbiased=False)
+        batch_count = x.shape[0]
+        delta = batch_mean - self.mean
+        tot = self.count + batch_count
+        self.mean = self.mean + delta * batch_count / tot
+        m2 = (self.var * self.count + batch_var * batch_count
+              + delta ** 2 * self.count * batch_count / tot)
+        self.var = m2 / tot
+        self.count = tot
+
+    @torch.no_grad()
+    def normalize(self, x, clip=10.0):
+        return torch.clamp((x - self.mean) / torch.sqrt(self.var + 1e-8), -clip, clip)
+
+
 class Agent(nn.Module):
     def __init__(self, envs):
         super().__init__()
@@ -287,9 +349,26 @@ class Agent(nn.Module):
 
 if __name__ == "__main__":
     args = parse_args()
+    tag = f"_{args.run_tag}" if args.run_tag else ""
+
+    # ---- backend / device resolution ----
+    sim_backend = args.sim_backend
+    if sim_backend == "auto":
+        sim_backend = "gpu" if torch.cuda.is_available() else "cpu"
+    if sim_backend == "gpu" and not torch.cuda.is_available():
+        raise SystemExit(
+            "--sim-backend gpu requires CUDA. SAPIEN has no ROCm backend, so an "
+            "AMD GPU cannot run the simulator; use --sim-backend cpu.")
+    ROLLOUT = ROLLOUT_GPU if sim_backend == "gpu" else ROLLOUT_CPU
+    if args.num_envs is None:
+        args.num_envs = ROLLOUT["num_envs"]
+    if args.num_steps is None:
+        args.num_steps = ROLLOUT["num_steps"]
+    if args.num_eval_envs is None:
+        args.num_eval_envs = EVAL_ENVS_GPU if sim_backend == "gpu" else EVAL_ENVS_CPU
 
     # ---- official hyperparameters (defaults from ppo.py) ----
-    learning_rate = 3e-4
+    learning_rate = args.lr
     anneal_lr = False
     gamma = args.gamma
     gae_lambda = args.gae_lambda
@@ -298,7 +377,7 @@ if __name__ == "__main__":
     norm_adv = True
     clip_coef = 0.2
     clip_vloss = False
-    ent_coef = 0.0
+    ent_coef = args.ent_coef
     vf_coef = 0.5
     max_grad_norm = 0.5
     target_kl = 0.1
@@ -314,7 +393,7 @@ if __name__ == "__main__":
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    device = torch.device("cpu")
+    device = torch.device("cuda" if sim_backend == "gpu" else "cpu")
 
     obs_tag = "RAW native state obs" if args.raw_state else "unified 42-dim obs"
     print("=" * 70)
@@ -322,19 +401,37 @@ if __name__ == "__main__":
     print(f"steps={args.total_timesteps:,} envs={args.num_envs} "
           f"num_steps={args.num_steps} batch={batch_size} gamma={gamma} "
           f"lr={learning_rate} ent={ent_coef}")
+    print(f"backend={sim_backend} device={device}"
+          + (f" ({torch.cuda.get_device_name(0)})" if sim_backend == "gpu" else ""))
     print("=" * 70)
 
     # ---- env setup (CPU adaptation: stacked num_envs=1 envs) ----
     cfg = None if args.raw_state else SLOT_LAYOUT[args.env_id]
     obs_mode = "state" if args.raw_state else "state_dict"
 
+    max_eps_override = MAX_EPISODE_STEPS.get(args.env_id)
+
     def _make_vec(num_envs, ignore_terminations, reconfiguration_freq):
+        if sim_backend == "gpu":
+            # ONE env holding all parallel sims on the GPU: this is the official
+            # setup, and it is what makes 512-env PPO possible at all.
+            return GpuSingleVec(
+                args.env_id, num_envs=num_envs, cfg=cfg,
+                control_mode=CONTROL_MODE, device=str(device),
+                ignore_terminations=ignore_terminations, record_metrics=True,
+                raw_state=args.raw_state,
+                reconfiguration_freq=reconfiguration_freq,
+                max_episode_steps=max_eps_override,
+                seed=args.seed)
         envs = []
         for _ in range(num_envs):
-            envs.append(gym.make(
-                args.env_id, num_envs=1, obs_mode=obs_mode,
-                control_mode=CONTROL_MODE, sim_backend="cpu",
-                reconfiguration_freq=reconfiguration_freq))
+            kw = dict(num_envs=1, obs_mode=obs_mode,
+                      control_mode=CONTROL_MODE, sim_backend="cpu",
+                      render_backend="none",
+                      reconfiguration_freq=reconfiguration_freq)
+            if max_eps_override is not None:
+                kw["max_episode_steps"] = int(max_eps_override)
+            envs.append(gym.make(args.env_id, **kw))
         return MultiSingleEnvVector(envs, cfg,
                                     ignore_terminations=ignore_terminations,
                                     record_metrics=True,
@@ -347,13 +444,24 @@ if __name__ == "__main__":
                           ignore_terminations=not eval_partial_reset,
                           reconfiguration_freq=eval_reconfiguration_freq)
 
-    max_episode_steps = gym_utils.find_max_episode_steps_value(envs._env)
+    try:
+        max_episode_steps = gym_utils.find_max_episode_steps_value(envs._env)
+    except Exception:  # GPU env: fall back to the wrapper's own spec
+        max_episode_steps = envs.max_episode_steps
     print(f"task horizon: {max_episode_steps} steps/episode")
 
     assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space supported"
 
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=learning_rate, eps=1e-5)
+    if args.init_ckpt:
+        init_path = args.init_ckpt if os.path.isabs(args.init_ckpt) \
+            else os.path.join(CKPT_DIR, args.init_ckpt)
+        init_sd = torch.load(init_path, map_location=device)
+        if isinstance(init_sd, dict) and "state_dict" in init_sd:
+            init_sd = init_sd["state_dict"]
+        agent.load_state_dict(init_sd)
+        print(f"warm start from {init_path}", flush=True)
 
     obs_shape = envs.single_observation_space.shape
     act_shape = envs.single_action_space.shape
@@ -367,6 +475,25 @@ if __name__ == "__main__":
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=args.seed)
+
+    # ---- optional running observation normalisation ----
+    # state obs 各维量纲差异大（关节角 ~±3 rad、tcp 位置 ~0.4 m、四元数 ~1），
+    # 不归一化时策略网络的有效学习率被少数大值维主导，长回合任务尤其难收敛。
+    obs_rms = None
+    raw_obs_store = None
+    if args.obs_norm:
+        obs_rms = RunningMeanStd(int(obs_shape[0]), device)
+        for _ in range(16):
+            sample, _ = envs.reset()
+            obs_rms.update(sample.reshape(-1, sample.shape[-1]))
+        obs_rms.update(next_obs.reshape(-1, next_obs.shape[-1]))
+        raw_obs_store = torch.zeros_like(obs_store)
+        print(f"obs norm on: dims 0-8 mean={obs_rms.mean[:9].abs().mean():.3f} "
+              f"std={obs_rms.var[:9].sqrt().mean():.3f}", flush=True)
+
+    def norm_obs(x):
+        return obs_rms.normalize(x) if obs_rms is not None else x
+
     eval_obs, _ = eval_envs.reset(seed=args.seed)
     next_done = torch.zeros(args.num_envs, device=device)
 
@@ -389,26 +516,48 @@ if __name__ == "__main__":
             num_episodes = 0
             # run one full horizon (+small margin) so every eval env truncates
             # exactly once -> num_eval_envs complete episodes each eval
+            clip_hits = 0
+            act_elems = 0
             for _ in range(max_episode_steps + 10):
                 with torch.no_grad():
+                    eval_action = agent.get_action(norm_obs(eval_obs),
+                                                   deterministic=True)
+                    # 训练侧一律 clip 到动作空间，评估必须一致，否则测的不是同一个策略
+                    clip_hits += int(((eval_action < action_space_low)
+                                      | (eval_action > action_space_high)).sum())
+                    act_elems += eval_action.numel()
                     eval_obs, eval_rew, _, _, eval_infos = eval_envs.step(
-                        agent.get_action(eval_obs, deterministic=True))
+                        clip_action(eval_action))
                     if "final_info" in eval_infos:
                         mask = eval_infos["_final_info"]
                         num_episodes += int(mask.sum())
+                        # `episode` entries are full-batch vectors: keep only the
+                        # envs that actually finished, otherwise every unfinished
+                        # env contributes a stale 0 and SR is under-reported by
+                        # up to a factor of num_envs.
                         for k, v in eval_infos["final_info"]["episode"].items():
-                            eval_metrics[k].append(v)
+                            eval_metrics[k].append(v[mask])
             sr = np.nan
-            if "success_once" in eval_metrics:
-                sr = float(torch.stack(eval_metrics["success_once"]).float().mean())
-                best_sr = max(best_sr, sr)
-            ret = float(torch.stack(eval_metrics["return"]).float().mean()) if "return" in eval_metrics else np.nan
+            if eval_metrics.get("success_once"):
+                sr = float(torch.cat([x.float().reshape(-1)
+                                      for x in eval_metrics["success_once"]]).mean())
+                if sr > best_sr:
+                    best_sr = sr
+                    # 进度不单调：单独留一份历史最优，避免被后续迭代覆盖
+                    torch.save(agent.state_dict(), os.path.join(
+                        CKPT_DIR, f"{args.env_id}_seed{args.seed}{tag}_best.pt"))
+            ret = (float(torch.cat([x.float().reshape(-1)
+                                    for x in eval_metrics["return"]]).mean())
+                   if eval_metrics.get("return") else np.nan)
+            clip_frac = clip_hits / max(act_elems, 1)
             print(f"  -- Eval @ step {global_step:,}: SR={sr*100:.1f}% "
-                  f"avg_R={ret:.2f} episodes={num_episodes} best_SR={best_sr*100:.1f}%",
+                  f"avg_R={ret:.2f} episodes={num_episodes} best_SR={best_sr*100:.1f}% "
+                  f"act_clip={clip_frac*100:.1f}%",
                   flush=True)
             eval_history.append({"step": global_step, "success_rate": sr,
-                                 "avg_return": ret, "episodes": num_episodes})
-            ckpt_path = os.path.join(CKPT_DIR, f"{args.env_id}_seed{args.seed}_latest.pt")
+                                 "avg_return": ret, "episodes": num_episodes,
+                                 "action_clip_frac": clip_frac})
+            ckpt_path = os.path.join(CKPT_DIR, f"{args.env_id}_seed{args.seed}{tag}_latest.pt")
             torch.save(agent.state_dict(), ckpt_path)
 
         if anneal_lr:
@@ -418,10 +567,13 @@ if __name__ == "__main__":
         # ---------------- rollout ----------------
         for step in range(0, args.num_steps):
             global_step += args.num_envs
-            obs_store[step] = next_obs
+            obs_input = norm_obs(next_obs)
+            obs_store[step] = obs_input
+            if raw_obs_store is not None:
+                raw_obs_store[step] = next_obs
             dones_store[step] = next_done
             with torch.no_grad():
-                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                action, logprob, _, value = agent.get_action_and_value(obs_input)
                 values_store[step] = value.flatten()
             actions_store[step] = action
             logprobs_store[step] = logprob
@@ -433,11 +585,16 @@ if __name__ == "__main__":
                 done_mask = infos["_final_info"]
                 with torch.no_grad():
                     final_values[step, torch.arange(args.num_envs, device=device)[done_mask]] = \
-                        agent.get_value(infos["final_observation"][done_mask]).view(-1)
+                        agent.get_value(norm_obs(infos["final_observation"][done_mask])).view(-1)
+
+        if obs_rms is not None:
+            # 用本轮 rollout 的原始 obs 更新统计量：下一轮起归一化更准，
+            # 但本轮 buffer 里存的是同一套统计量下的归一化值，前后一致。
+            obs_rms.update(raw_obs_store.reshape(-1, obs_shape[0]))
 
         # ---------------- GAE (verbatim official logic) ----------------
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(norm_obs(next_obs)).reshape(1, -1)
             advantages = torch.zeros_like(rewards_store).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
@@ -461,10 +618,12 @@ if __name__ == "__main__":
 
         # ---------------- PPO update (verbatim official logic) ----------------
         agent.train()
-        b_inds = np.arange(batch_size)
+        b_inds = torch.arange(batch_size, device=device)
         clipfracs = []
         for epoch in range(update_epochs):
-            np.random.shuffle(b_inds)
+            # torch index (device-resident) instead of numpy: a numpy array
+            # cannot index a CUDA tensor.
+            b_inds = b_inds[torch.randperm(batch_size, device=device)]
             for start in range(0, batch_size, minibatch_size):
                 end = start + minibatch_size
                 mb_inds = b_inds[start:end]
@@ -515,9 +674,9 @@ if __name__ == "__main__":
                   f"clipfrac={np.mean(clipfracs):.3f} elapsed={(time.time()-start_time)/60:.1f}min",
                   flush=True)
 
-    final_path = os.path.join(CKPT_DIR, f"{args.env_id}_seed{args.seed}_final.pt")
+    final_path = os.path.join(CKPT_DIR, f"{args.env_id}_seed{args.seed}{tag}_final.pt")
     torch.save(agent.state_dict(), final_path)
-    result_path = os.path.join(CKPT_DIR, f"{args.env_id}_seed{args.seed}_results.json")
+    result_path = os.path.join(CKPT_DIR, f"{args.env_id}_seed{args.seed}{tag}_results.json")
     with open(result_path, "w") as f:
         json.dump({"task": args.env_id, "seed": args.seed,
                    "total_timesteps": args.total_timesteps,

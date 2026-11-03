@@ -27,24 +27,33 @@ SLOT LAYOUT (42 dims, identical physical meaning in every task)
            Push/Pull/Pick: the cube ; LiftPegUpright: the peg
   [32:39] object SLOT 2     (7): second object / tool
            reserved slot -> zeros for all 4 tasks (single-object tasks)
-  [39:42] goal_pos          (3: xyz of goal region)
-           Push/Pull/Pick: goal_pos key ;
+  [39:48] task TAIL         (9): goal site xyz (3) then REL vectors (up to 6)
+           Push/Pull/Pick: [39:42]=goal_pos xyz, [42:48]=zeros
            LiftPegUpright: zeros (success = peg upright, implicit in slot 1
            orientation, no goal site in the scene)
+           StackCube: goal is None, so [39:48] holds the three native REL
+           vectors tcp_to_cubeA / tcp_to_cubeB / cubeA_to_cubeB. This makes
+           the unified vector BIT-IDENTICAL to the native 48-dim state obs,
+           so official 48-dim checkpoints load without surgery.
 
 Removed as redundant:
   tcp_to_obj_pos, is_grasped (inferable from gripper qpos).
   Both are linear differences / functions of the absolute poses (zero new
   information); PushCube/PullCube contain ZERO relative vectors and train
   to 100% SR.
+  EXCEPTION: the 9 relative dims of StackCube are KEPT in [39:48]. Dropping
+  them (42-dim build) made the stacking task untrainable from scratch and
+  broke the official checkpoint (SR 97.6% -> 0%), because they are the
+  direct terms of the success test and the network had to compute them.
 All ABSOLUTE poses (tcp / object / goal) are KEPT - the scene is localized
 exclusively by these, and they are untouched.
 """
 import numpy as np
 import torch
 
-UNIFIED_OBS_DIM = 42
+UNIFIED_OBS_DIM = 48
 AGENT_DIM = 18
+TAIL_START = 39
 
 # Per-task slot binding. Key names must match _get_obs_extra in the task sources.
 SLOT_LAYOUT = {
@@ -62,8 +71,14 @@ SLOT_LAYOUT = {
     # PokeCube: poke the free cube (slot1) with the held peg (slot2) to goal.
     "PokeCube-v1":        {"slot1": "cube_pose", "slot2": "peg_pose",  "goal": "goal_pos"},
     # StackCube: stack cubeA (slot1, carried) onto cubeB (slot2, base).
-    # No goal site: success is encoded in the slot1/slot2 relative pose.
-    "StackCube-v1":       {"slot1": "cubeA_pose","slot2": "cubeB_pose","goal": None},
+    # No goal site, but the native 48-dim obs carries three REL vectors
+    # (cubeA-tcp, cubeB-tcp, cubeB-cubeA) that are the direct terms of the
+    # stacking success test. They are reproduced exactly in [39:48] below, so
+    # the unified vector is bit-identical to the native state obs.
+    "StackCube-v1":       {"slot1": "cubeA_pose","slot2": "cubeB_pose","goal": None,
+                           "rel": (("cubeA_pose", "tcp_pose", 3),
+                                   ("cubeB_pose", "tcp_pose", 3),
+                                   ("cubeB_pose", "cubeA_pose", 3))},
     # PullCubeTool: hook the cube (slot1) with the held L-shaped tool
     # (slot2). No goal_pos key in obs (implicit target), horizon=100.
     "PullCubeTool-v1":    {"slot1": "cube_pose", "slot2": "tool_pose", "goal": None},
@@ -143,22 +158,38 @@ def build_unified_obs(obs, cfg):
     if cfg["slot2"] is not None:
         u[32:39] = _take(flat, cfg["slot2"], 7)
 
-    # [39:42] goal position: cfg["goal"] names the extra key holding the goal
-    # xyz; None means the task has no goal site (LiftPegUpright: success is the
-    # peg's own upright orientation, already encoded in slot 1) -> zeros.
+    # [39:48] task tail (9 dims): optional goal site xyz, then REL vectors.
+    # cfg["goal"] names the extra key holding the goal xyz; None means the task
+    # has no goal site (LiftPegUpright: success is the peg's own upright
+    # orientation; StackCube: success is A resting on B) -> zeros there.
+    # cfg["rel"] entries (key_a, key_b, dim) are filled as flat[key_a]-flat[key_b]
+    # right after the goal slot. For StackCube this reproduces the native
+    # obs[39:48] exactly (tcp_to_cubeA, tcp_to_cubeB, cubeA_to_cubeB).
+    off = TAIL_START
     if cfg["goal"] is not None:
         u[39:42] = _take(flat, cfg["goal"], 3)
+        off = 42
+    for key_a, key_b, dim in cfg.get("rel", ()):
+        u[off:off + dim] = _take(flat, key_a, dim) - _take(flat, key_b, dim)
+        off += dim
     return u
 
 
 def slot_mask(cfg):
-    """Boolean mask of the 42 dims carrying real data (True=real, False=padded zero).
+    """Boolean mask of the unified dims carrying real data (True=real, False=padded zero).
     Reserved for masked normalization; current trainer does not normalize obs."""
     m = np.ones(UNIFIED_OBS_DIM, dtype=bool)
     if cfg["slot2"] is None:
         m[32:39] = False
     if cfg["goal"] is None:
         m[39:42] = False
+    # tail dims not filled by goal/rel stay zero-padded
+    filled = (3 if cfg["goal"] is not None else 0) + sum(
+        d for _, _, d in cfg.get("rel", ()))
+    m[TAIL_START + filled:] = False
+    # REL vectors occupy [39:48] even when there is no goal site, so re-mark
+    # the filled tail range as real after the goal-slot clearing above.
+    m[TAIL_START:TAIL_START + filled] = True
     return m
 
 
@@ -190,11 +221,18 @@ def _leaves_torch(obs):
     return out
 
 
-def build_unified_obs_batch(obs, cfg):
-    """Map a BATCHED state_dict obs (nested dict of (N, d) tensors) to (N, 42)."""
+def build_unified_obs_batch(obs, cfg, device=None):
+    """Map a BATCHED state_dict obs (nested dict of (N, d) tensors) to (N, 42).
+
+    `device` defaults to the device of the incoming tensors, so with a GPU sim
+    backend the whole mapping stays on the GPU (no host round-trip per step).
+    """
     flat = _leaves_torch(obs)
-    n_envs = next(iter(flat.values())).shape[0]
-    u = torch.zeros((n_envs, UNIFIED_OBS_DIM), dtype=torch.float32)
+    ref = next(iter(flat.values()))
+    n_envs = ref.shape[0] if ref.dim() > 0 else 1
+    if device is None:
+        device = ref.device
+    u = torch.zeros((n_envs, UNIFIED_OBS_DIM), dtype=torch.float32, device=device)
 
     # agent block laid out by physical meaning (see build_unified_obs comment):
     # [0:9] qpos (7 arm + 2 gripper; gripper zero-padded for panda_stick),
@@ -216,6 +254,13 @@ def build_unified_obs_batch(obs, cfg):
     u[:, 25:32] = flat[cfg["slot1"]].reshape(n_envs, -1)[:, :7]
     if cfg["slot2"] is not None:
         u[:, 32:39] = flat[cfg["slot2"]].reshape(n_envs, -1)[:, :7]
+    # [39:48] task tail: goal site xyz then REL vectors (see build_unified_obs)
+    off = TAIL_START
     if cfg["goal"] is not None:
         u[:, 39:42] = flat[cfg["goal"]].reshape(n_envs, -1)[:, :3]
+        off = 42
+    for key_a, key_b, dim in cfg.get("rel", ()):
+        u[:, off:off + dim] = (flat[key_a].reshape(n_envs, -1)[:, :dim]
+                               - flat[key_b].reshape(n_envs, -1)[:, :dim])
+        off += dim
     return u

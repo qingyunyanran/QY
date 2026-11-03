@@ -53,6 +53,7 @@ import gymnasium as gym
 import mani_skill.envs
 
 from unified_obs import UNIFIED_OBS_DIM, SLOT_LAYOUT, build_unified_obs
+from vec_env import GpuVecEnv, evaluate_vec, as_tensor
 
 # ============================================================
 # Config
@@ -66,14 +67,34 @@ TASK_INFO = {
     "PullCube-v1":       {"control_mode": "pd_joint_delta_pos"},
     "PickCube-v1":       {"control_mode": "pd_joint_delta_pos"},
     "LiftPegUpright-v1": {"control_mode": "pd_joint_delta_pos"},
+    # StackCube: grasp cubeA, stack it on cubeB, release and let it settle.
+    # The 42-dim mapping already exists in unified_obs.SLOT_LAYOUT
+    # (slot1=cubeA_pose, slot2=cubeB_pose, goal=None -> [39:42] zero-padded):
+    # the raw 48-dim obs loses exactly the three relative vectors
+    # tcp_to_cubeA_pos / tcp_to_cubeB_pos / cubeA_to_cubeB_pos, which are linear
+    # differences of poses we keep.
+    # `max_episode_steps=100` overrides the registered default (50). StackCube
+    # must grasp cubeA, carry it, place it on cubeB, release and let the stack
+    # settle -- that sequence does not fit in 50 control steps. The four easy
+    # tasks keep their native 50.
+    "StackCube-v1":      {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 100},
 }
 
-# PPO hyperparameters -- aligned with official ManiSkill PPO baseline
-# (examples/baselines/ppo/ppo.py): gamma=0.8 short-sighted discount for dense
-# reward, zero entropy bonus, 4 epochs with target-KL early stop, lr 3e-4
-# constant, no value clipping. num_envs/num_steps differ (16x512 vs 512x50)
-# because we run on CPU, but batch/minibatch sizes stay comparable.
-PPO_CONFIG = {
+# Two hyperparameter sets. The discount/gain terms are IDENTICAL (official
+# ManiSkill PPO: gamma=0.8, gae_lambda=0.9, lr 3e-4, zero entropy bonus, 4
+# epochs with target-KL early stop, no value clipping). Only the rollout shape
+# differs, because it is dictated by how the environments can be vectorised:
+#
+#   CPU backend -- ManiSkill forbids num_envs>1 with sim_backend="cpu" inside
+#   one process, so N single-env sims are stepped in a Python loop. 16 x 512
+#   keeps the batch (8192) comparable while amortising Python overhead.
+#
+#   GPU backend -- one env object holds 512 parallel sims on the GPU. This is
+#   the official setup (512 x 50 = 25,600 batch, 32 minibatches of 800) and the
+#   only regime in which PPO has a chance on StackCube: the earlier failure ran
+#   8 envs x 5M steps and collapsed (see StackCube_PPO_失败分析报告.md).
+PPO_CONFIG_CPU = {
     "learning_rate": 3e-4,
     "num_envs": 16,
     "num_steps": 512,
@@ -94,13 +115,59 @@ PPO_CONFIG = {
     "target_kl": 0.1,
 }
 
+PPO_CONFIG_GPU = dict(PPO_CONFIG_CPU)
+PPO_CONFIG_GPU.update({
+    "num_envs": 512,
+    "num_steps": 50,
+    "num_minibatches": 32,
+})
+
+# Default kept at the CPU profile so the original reproduction command still
+# behaves identically; the CLI switches it via --sim-backend.
+PPO_CONFIG = PPO_CONFIG_CPU
+
 ER_CONFIG = {
     "buffer_per_task": 200_000,   # per-task ring-buffer capacity
     "replay_ratio": 0.5,
     "sample_strategy": "uniform_across_tasks",
 }
 
+# Exploration std (log) applied after a policy-only warm start. exp(-1.5)=0.22
+# keeps rollouts close to the seeded expert while still leaving exploration
+# room; the stock -0.5 (std 0.6) is far too wide for a converged policy.
+PRETRAIN_LOGSTD = -1.0
+# Minimum per-sample log-prob accepted by the ER behaviour-cloning regulariser.
+# Replay actions were sampled by the policy of the task that produced them; if
+# the shared actor has since moved (or its std has been re-tightened), those
+# actions fall tens of std away and -logp explodes (O(100) per sample), which
+# makes the 0.05-weighted BC term dominate the PPO loss and drags the whole
+# network into a compromise that solves nothing. Clamping is the Huber-isation
+# of that term: it still pulls the policy towards old actions when they are
+# plausible under the current policy, and stops caring once they are hopeless.
+BC_LOGPROB_CLAMP = 10.0
+# When the actor is frozen for the whole warm-started phase the rollout is only
+# there to fit the critic, so track the expert tightly: std 0.135 keeps the
+# collected returns close to the greedy policy the critic has to evaluate.
+PRETRAIN_LOGSTD_FROZEN = -2.0
+
+# A warm-started task begins from an expert policy, so the stock optimiser
+# schedule is far too aggressive for it: the value head has just been
+# re-initialised, so the first advantage batch is enormous, and target_kl=0.1
+# happily accepts a 0.12-KL jump inside a single epoch. Measured on the 5-task
+# sequence: the seeded StackCube expert (97%) was gone within 10 updates
+# (train_SR 4% -> 0%) and the blast radius took PickCube 95% -> 0% and
+# LiftPeg 95% -> 10% with it. Freeze the actor long enough for the critic to
+# fit the new reward scale, then adapt at a small step size.
+PRETRAIN_FREEZE_ITERS = 25
+PRETRAIN_LR = 1e-4
+PRETRAIN_TARGET_KL = 0.02
+
 DEFAULT_TASK_SEQUENCE = ["PushCube-v1", "PullCube-v1", "PickCube-v1", "LiftPegUpright-v1"]
+# Target benchmark: the same four tasks with StackCube appended LAST. The order
+# matters -- ER keeps every earlier task in its buffer, so appending the hard
+# task tests exactly the claim we want to make: a new hard skill can be added
+# without forgetting the four easy ones.
+FIVE_TASK_SEQUENCE = DEFAULT_TASK_SEQUENCE + ["StackCube-v1"]
 
 RESULT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", "ppo_er_unified")
 CKPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ckpts", "ppo_er_unified")
@@ -291,20 +358,38 @@ class ReplayBuffer:
 # Environment creation (unified 42-dim obs)
 # ============================================================
 
-def make_env(env_id, num_envs, seed=0, eval_mode=False):
-    """Create vectorized ManiSkill envs wrapped to the unified 42-dim obs."""
+def make_env(env_id, num_envs, seed=0, eval_mode=False, backend="cpu", device="cpu"):
+    """Create vectorized ManiSkill envs wrapped to the unified 42-dim obs.
+
+    backend="gpu" -> ONE env holding `num_envs` parallel sims on the GPU
+                     (official setup: a step is one batched simulator call)
+    backend="cpu" -> `num_envs` independent single-env CPU sims stepped in a
+                     Python loop (the original port, kept as a fallback for
+                     machines without CUDA)
+    """
     task_info = TASK_INFO[env_id]
     cfg = SLOT_LAYOUT[env_id]
+    max_eps = task_info.get("max_episode_steps")
+
+    if backend == "gpu":
+        return GpuVecEnv(
+            env_id, num_envs=num_envs, cfg=cfg,
+            control_mode=task_info["control_mode"], device=device,
+            seed=seed, max_episode_steps=max_eps,
+        )
 
     def _make():
-        env = gym.make(
-            env_id,
+        kwargs = dict(
             num_envs=1,
             obs_mode="state_dict",
             control_mode=task_info["control_mode"],
             sim_backend="cpu",
+            # 见 vec_env.GpuVecEnv：状态观测不需要渲染
+            render_backend="none",
         )
-        return env
+        if max_eps is not None:
+            kwargs["max_episode_steps"] = int(max_eps)
+        return gym.make(env_id, **kwargs)
 
     envs = [_make() for _ in range(num_envs)]
     return MultiEnvWrapper(envs, env_id, cfg, seed)
@@ -343,7 +428,11 @@ class MultiEnvWrapper:
     def step(self, actions):
         obs_list, rew_list, done_list, truncated_list, info_list = [], [], [], [], []
         final_obs_list = [None] * len(self.envs)
-        actions = np.clip(actions, -1.0, 1.0)
+        # The trainer may hand us a device tensor when the previous task ran on
+        # the GPU; the CPU backend needs a host ndarray.
+        if torch.is_tensor(actions):
+            actions = actions.detach().cpu().numpy()
+        actions = np.clip(np.asarray(actions, dtype=np.float32), -1.0, 1.0)
         for i, env in enumerate(self.envs):
             obs, rew, done, truncated, info = env.step(actions[i][None, :])  # (8,) -> (1,8)
             final_obs_list[i] = self._obs(obs)
@@ -373,21 +462,38 @@ class MultiEnvWrapper:
 # Evaluation
 # ============================================================
 
-def evaluate_task(agent, env_id, num_eps=20, max_steps=200):
+def evaluate_task(agent, env_id, num_eps=20, max_steps=200, backend="cpu", device="cpu"):
     """Evaluate agent on a single task with the unified 42-dim obs.
     Uses the task's NATIVE episode horizon (identical to the single-task
-    baselines); max_steps is only a safety cap on the policy loop."""
+    baselines); max_steps is only a safety cap on the policy loop.
+
+    backend="gpu" delegates to vec_env.evaluate_vec, which runs all `num_eps`
+    episodes as ONE batched simulation: 20 x 100 sequential GPU steps would
+    otherwise dominate evaluation time (each tiny Sim.step is latency-bound).
+    """
     task_info = TASK_INFO[env_id]
     cfg = SLOT_LAYOUT[env_id]
-    env = gym.make(
-        env_id, num_envs=1, obs_mode="state_dict",
+    max_eps = task_info.get("max_episode_steps")
+
+    if backend == "gpu":
+        return evaluate_vec(agent, env_id, cfg, task_info["control_mode"],
+                            device=device, num_eps=num_eps,
+                            max_episode_steps=max_eps)
+
+    kwargs = dict(
+        num_envs=1, obs_mode="state_dict",
         control_mode=task_info["control_mode"],
         sim_backend="cpu",
+        # 见 vec_env.GpuVecEnv：状态观测不需要渲染
+        render_backend="none",
         # Full scene reconfiguration on every reset, identical to the
         # single-task official baseline eval protocol (eval_reconfiguration_
         # freq=1), so CL eval numbers are comparable to the baselines.
         reconfiguration_freq=1,
     )
+    if max_eps is not None:
+        kwargs["max_episode_steps"] = int(max_eps)
+    env = gym.make(env_id, **kwargs)
 
     successes = []
     total_rewards = []
@@ -402,7 +508,7 @@ def evaluate_task(agent, env_id, num_eps=20, max_steps=200):
             steps = 0
             ep_success = False
             while not (done or truncated) and steps < max_steps:
-                obs_t = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
+                obs_t = as_tensor(obs, device).unsqueeze(0)
                 action = agent.get_action(obs_t, deterministic=True).cpu().numpy()[0]
                 action = np.clip(action, -1.0, 1.0)
                 obs_raw, rew, done, truncated, info = env.step(action[None, :])  # (8,) -> (1,8)
@@ -433,10 +539,11 @@ def evaluate_task(agent, env_id, num_eps=20, max_steps=200):
     return sr, avg_r
 
 
-def evaluate_all_tasks(agent, task_sequence, num_eps=20):
+def evaluate_all_tasks(agent, task_sequence, num_eps=20, backend="cpu", device="cpu"):
     results = {}
     for env_id in task_sequence:
-        sr, avg_r = evaluate_task(agent, env_id, num_eps)
+        sr, avg_r = evaluate_task(agent, env_id, num_eps,
+                                  backend=backend, device=device)
         results[env_id] = {"success_rate": sr, "avg_reward": avg_r}
     return results
 
@@ -445,13 +552,65 @@ def evaluate_all_tasks(agent, task_sequence, num_eps=20):
 # PPO Training with Experience Replay
 # ============================================================
 
+def count_rollout_ends(dones, truncateds, infos):
+    """Count finished episodes and successful ones inside one rollout step.
+
+    Handles both env interfaces: the CPU wrapper returns a list of per-env
+    info dicts, the GPU wrapper returns ONE dict of batched tensors.
+    """
+    if isinstance(infos, dict):
+        done = as_tensor(dones, "cpu").reshape(-1).bool()
+        trunc = as_tensor(truncateds, "cpu").reshape(-1).bool()
+        ended = done | trunc
+        n_done = int(ended.sum().item())
+        succ = infos.get("success", None)
+        if succ is not None and n_done:
+            s = as_tensor(succ, "cpu").reshape(-1).bool() & ended
+            return int(s.sum().item()), n_done
+        return 0, n_done
+
+    n_succ, n_done = 0, 0
+    for i, inf in enumerate(infos):
+        # Count each finished episode once (success flag persists until reset,
+        # so only check at episode end).
+        if dones[i] or truncateds[i]:
+            n_done += 1
+            if inf is not None and inf.get("success") is not None:
+                try:
+                    if bool(torch.as_tensor(inf["success"]).any()):
+                        n_succ += 1
+                except Exception:
+                    pass
+    return n_succ, n_done
+
+
 def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=None,
-                 ppo_config=None, eval_freq=50, eval_eps=20, seed=42, verbose=True):
+                 ppo_config=None, eval_freq=50, eval_eps=20, seed=42, verbose=True,
+                 backend="cpu", device=None, run_tag=None, pretrain_ckpts=None,
+                 pretrain_freeze_task=False, expert_anchors=None, anchor_coef=2.0):
     er_config = er_config or ER_CONFIG
     ppo_config = ppo_config or PPO_CONFIG
     n_tasks = len(task_sequence)
-    obs_dim = UNIFIED_OBS_DIM          # 42, identical for every task
+    obs_dim = UNIFIED_OBS_DIM          # 48, identical for every task
     action_dim = 8                     # pd_joint_delta_pos: 7 joints + 1 gripper
+
+    # Suffix for result/checkpoint filenames. Empty -> the original names, so
+    # the archived 12M CPU run stays reproducible byte-for-byte.
+    _tag = f"_{run_tag}" if run_tag else ""
+
+    # -- device / backend resolution -------------------------------------
+    # "gpu" = CUDA-backed SAPIEN + all tensors on the GPU (official setup);
+    # "cpu" = the original ported path (16 separate CPU sims in a Python loop).
+    # Fail loudly instead of silently falling back: SAPIEN's GPU backend is
+    # CUDA-only, so on an AMD/ROCm box the physics silently stays on the CPU
+    # and the run looks mysteriously slow rather than broken.
+    if device is None:
+        device = "cuda" if (backend == "gpu" and torch.cuda.is_available()) else "cpu"
+    device_obj = torch.device(device)
+    if backend == "gpu" and device_obj.type != "cuda":
+        raise RuntimeError(
+            "backend='gpu' requires CUDA: SAPIEN has no ROCm backend, so the "
+            "simulator cannot run on this GPU. Use --sim-backend cpu instead.")
 
     # Per-task step budgets: a scalar gives every task the same budget; a
     # list/tuple gives one budget per task (harder tasks need more -- e.g.
@@ -487,38 +646,134 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
         minibatch_size = batch_size // num_minibatches
         update_epochs = ppo_config["update_epochs"]
 
-        envs = make_env(env_id, num_envs, seed=seed+task_idx)
+        envs = make_env(env_id, num_envs, seed=seed+task_idx,
+                        backend=backend, device=device)
+
+        # The action head is shared across all tasks, so every task must expose
+        # the same action width. Catch a control_mode mismatch here instead of
+        # silently writing wrongly-shaped actions into the replay buffer.
+        env_action_dim = int(getattr(envs, "action_dim", action_dim))
+        assert env_action_dim == action_dim, (
+            f"{env_id}: env action dim {env_action_dim} != shared head {action_dim}; "
+            f"check control_mode in TASK_INFO")
 
         if task_idx == 0:
-            agent = Agent(obs_dim, action_dim).to(torch.device("cpu"))
+            agent = Agent(obs_dim, action_dim).to(device_obj)
         # else: reuse agent from previous task (this is the point of CL!)
+        elif next(agent.parameters()).device != device_obj:
+            agent = agent.to(device_obj)
 
-        optimizer = optim.Adam(agent.parameters(), lr=ppo_config["learning_rate"], eps=1e-5)
+        # Optional per-task warm start, applied when the sequence REACHES that
+        # task. All earlier tasks still train from scratch exactly as in the
+        # baseline, so the only difference from a vanilla ER run is the
+        # initialisation of the named task.
+        #
+        # POLICY-ONLY: only actor_mean is copied. The critic stays as inherited
+        # from the previous task, which is the whole point of CL (a shared
+        # value function carried across tasks). Loading the whole state dict
+        # also dragged in a value head trained on a different reward scale.
+        #
+        # The exploration scale is re-tightened because the seeded actor is a
+        # near-deterministic expert: keeping the inherited std of exp(-0.5)=0.6
+        # made the first update exceed the KL budget (approx_kl=0.134) and
+        # destroyed the policy within one iteration.
+        _warm = bool(pretrain_ckpts and env_id in pretrain_ckpts)
+        if _warm:
+            _path = pretrain_ckpts[env_id]
+            _sd = torch.load(_path, map_location=device_obj)
+            _actor = {k[len("actor_mean."):]: v for k, v in _sd.items()
+                      if k.startswith("actor_mean.")}
+            assert _actor, f"no actor_mean.* weights in {_path}"
+            agent.actor_mean.load_state_dict(_actor, strict=True)
+            with torch.no_grad():
+                agent.actor_logstd.fill_(PRETRAIN_LOGSTD_FROZEN if pretrain_freeze_task else PRETRAIN_LOGSTD)
+            # The value HEAD is task-specific: mean episodic reward differs by
+            # ~10x across these tasks (Push ~4, LiftPeg ~15, StackCube ~9 over a
+            # much longer horizon). An inherited head therefore predicts values
+            # off by an order of magnitude, the advantages it produces have the
+            # wrong scale and sign, and the first few updates wipe out the
+            # seeded expert even though the actor update is clipped. Re-init
+            # only the output layer (values ~0 -> advantage ~ return); the
+            # shared trunk, which is the transferable part, is kept.
+            layer_init(agent.critic[6], std=1.0)
+            if verbose:
+                print(f"  [warm start] {env_id}: actor_mean <- {_path}")
+                print(f"  [warm start] critic.6 re-initialised, trunk kept, "
+                      f"actor_logstd reset to {PRETRAIN_LOGSTD}")
+                print(f"  [warm start] actor frozen for {PRETRAIN_FREEZE_ITERS} "
+                      f"iterations, then lr={PRETRAIN_LR} target_kl={PRETRAIN_TARGET_KL}")
+
+        # Frozen teacher for a task whose policy comes from a separate
+        # pretraining stage. The actor is SHARED by every task, so copying an
+        # expert into it (hard warm start) erases the earlier policies
+        # instantly -- measured on the 5-task sequence: StackCube 95% while
+        # Push/Pull/Pick/LiftPeg all fell to 0%. Distillation imports the same
+        # knowledge without evicting the others: the shared trunk is pulled
+        # towards the expert on THIS task's observations while ER keeps it on
+        # the earlier tasks' observations.
+        anchor_net = None
+        if expert_anchors and env_id in expert_anchors:
+            _apath = expert_anchors[env_id]
+            _ateacher = Agent(obs_dim, action_dim).to(device_obj)
+            _asd = torch.load(_apath, map_location=device_obj)
+            _missing, _unexpected = _ateacher.load_state_dict(_asd, strict=False)
+            assert not [k for k in _missing if k.startswith("actor_mean.")], _missing
+            for _p in _ateacher.parameters():
+                _p.requires_grad_(False)
+            _ateacher.eval()
+            anchor_net = _ateacher.actor_mean
+            if verbose:
+                print(f"  [anchor] {env_id}: distilling from {_apath} "
+                      f"(coef={anchor_coef})")
+
+        task_lr = PRETRAIN_LR if _warm else ppo_config["learning_rate"]
+        task_target_kl = PRETRAIN_TARGET_KL if _warm else ppo_config.get("target_kl")
+        optimizer = optim.Adam(agent.parameters(), lr=task_lr, eps=1e-5)
         critic_warmup_iters = 5 if task_idx > 0 else 0
+        if _warm:
+            critic_warmup_iters = max(critic_warmup_iters, PRETRAIN_FREEZE_ITERS)
 
-        obs_storage = torch.zeros((num_steps, num_envs, obs_dim))
-        act_storage = torch.zeros((num_steps, num_envs, action_dim))
-        rew_storage = torch.zeros((num_steps, num_envs))
-        done_storage = torch.zeros((num_steps, num_envs))
-        val_storage = torch.zeros((num_steps, num_envs))
-        logp_storage = torch.zeros((num_steps, num_envs))
-        final_obs_storage = torch.zeros((num_steps, num_envs, obs_dim))
+        # Rollout tensors stay on the training device: on the GPU path the env
+        # already hands back GPU tensors, so staging them on the host would add
+        # two PCIe round-trips per environment step.
+        obs_storage = torch.zeros((num_steps, num_envs, obs_dim), device=device_obj)
+        act_storage = torch.zeros((num_steps, num_envs, action_dim), device=device_obj)
+        rew_storage = torch.zeros((num_steps, num_envs), device=device_obj)
+        done_storage = torch.zeros((num_steps, num_envs), device=device_obj)
+        val_storage = torch.zeros((num_steps, num_envs), device=device_obj)
+        logp_storage = torch.zeros((num_steps, num_envs), device=device_obj)
+        final_obs_storage = torch.zeros((num_steps, num_envs, obs_dim), device=device_obj)
 
         task_total_steps = steps_per_task[task_idx]
         num_iterations = task_total_steps // batch_size
+        if _warm and pretrain_freeze_task:
+            # Full-task freeze: the policy for this task is supplied by the
+            # standalone pretraining stage, so the CL run only adapts the value
+            # network. Co-training the actor was measured to be self-defeating:
+            # the ER behaviour-cloning term on earlier tasks is saturated
+            # against a freshly seeded actor, so the shared trunk drifts to a
+            # compromise that solves neither the new task nor the old ones
+            # (StackCube 97% -> 0%, PickCube 95% -> 0%, LiftPeg 95% -> 10%).
+            # Freezing via requires_grad keeps the ordinary training path, so
+            # buffer bookkeeping and end-of-phase evaluation still run.
+            for _p in agent.actor_mean.parameters():
+                _p.requires_grad_(False)
+            agent.actor_logstd.requires_grad_(False)
         global_step = 0
         start_time = time.time()
         if verbose:
             print(f"  step budget: {task_total_steps:,} ({num_iterations} iterations)")
 
         obs, _ = envs.reset()
-        obs_tensor = torch.tensor(obs, dtype=torch.float32)
+        obs_tensor = as_tensor(obs, device_obj)
+        bc_log = []
+        anchor_log = []
 
         for iteration in range(1, num_iterations + 1):
 
             if ppo_config["anneal_lr"]:
                 frac = 1.0 - (iteration - 1.0) / num_iterations
-                lr = frac * ppo_config["learning_rate"]
+                lr = frac * task_lr
                 for pg in optimizer.param_groups:
                     pg["lr"] = lr
 
@@ -529,26 +784,18 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 with torch.no_grad():
                     action, logprob, _, value = agent.get_action_and_value(obs_tensor)
 
-                next_obs, rewards, dones, truncateds, infos, final_obs = envs.step(action.numpy())
-                next_obs_tensor = torch.tensor(next_obs, dtype=torch.float32)
-                final_obs_tensor = torch.tensor(final_obs, dtype=torch.float32)
+                next_obs, rewards, dones, truncateds, infos, final_obs = envs.step(action)
+                next_obs_tensor = as_tensor(next_obs, device_obj)
+                final_obs_tensor = as_tensor(final_obs, device_obj)
 
-                for i, inf in enumerate(infos):
-                    # Count each finished episode once (success flag persists
-                    # until reset, so only check at episode end).
-                    if dones[i] or truncateds[i]:
-                        rollout_episodes += 1
-                        if inf is not None and inf.get("success") is not None:
-                            try:
-                                if bool(torch.as_tensor(inf["success"]).any()):
-                                    rollout_success += 1
-                            except Exception:
-                                pass
+                n_succ, n_done = count_rollout_ends(dones, truncateds, infos)
+                rollout_success += n_succ
+                rollout_episodes += n_done
 
                 obs_storage[step] = obs_tensor
                 act_storage[step] = action
-                rew_storage[step] = torch.tensor(rewards, dtype=torch.float32).squeeze(-1)
-                done_storage[step] = torch.tensor(dones | truncateds, dtype=torch.float32)
+                rew_storage[step] = as_tensor(rewards, device_obj).reshape(-1)
+                done_storage[step] = as_tensor(dones | truncateds, device_obj).reshape(-1)
                 val_storage[step] = value.squeeze(-1)
                 logp_storage[step] = logprob
                 final_obs_storage[step] = final_obs_tensor
@@ -562,7 +809,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 # estimate (episodes ~100 steps, rollout 512 steps -> ~5 ends
                 # per env per rollout), which badly biases long-horizon actions.
                 next_value = agent.get_value(obs_tensor).reshape(1, -1)
-                final_values = torch.zeros((num_steps, num_envs))
+                final_values = torch.zeros((num_steps, num_envs), device=device_obj)
                 for t in range(num_steps):
                     done_mask = done_storage[t].bool()
                     if done_mask.any():
@@ -606,14 +853,16 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 n_replay = int(batch_size * er_config["replay_ratio"])
                 replay = replay_buffer.sample(n_replay, exclude_task=task_idx)
                 if replay is not None:
-                    replay_obs_all = torch.tensor(replay["obs"], dtype=torch.float32)
-                    replay_actions_all = torch.tensor(replay["actions"], dtype=torch.float32)
+                    replay_obs_all = torch.as_tensor(
+                        replay["obs"], dtype=torch.float32, device=device_obj)
+                    replay_actions_all = torch.as_tensor(
+                        replay["actions"], dtype=torch.float32, device=device_obj)
 
             if iteration <= critic_warmup_iters:
                 if verbose:
                     print(f"  [WARMUP] critic-only iteration {iteration}/{critic_warmup_iters}")
                 for _ in range(update_epochs):
-                    b_inds = torch.randperm(batch_size)
+                    b_inds = torch.randperm(batch_size, device=device_obj)
                     for start in range(0, batch_size, minibatch_size):
                         end = start + minibatch_size
                         mb_inds = b_inds[start:end]
@@ -646,7 +895,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
             clipfracs = []
             for epoch in range(update_epochs):
-                b_inds = torch.randperm(batch_size)
+                b_inds = torch.randperm(batch_size, device=device_obj)
                 for start in range(0, batch_size, minibatch_size):
                     end = start + minibatch_size
                     mb_inds = b_inds[start:end]
@@ -668,6 +917,9 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                     pg_loss2 = -mb_advantages * torch.clamp(
                         ratio, 1 - ppo_config["clip_coef"], 1 + ppo_config["clip_coef"])
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                    if anchor_net is not None:
+                        # Distillation replaces the policy gradient here.
+                        pg_loss = pg_loss * 0.0
 
                     newvalue = newvalue.view(-1)
                     if ppo_config["clip_vloss"]:
@@ -687,11 +939,21 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
                     if replay_obs_all is not None:
                         mb_size = mb_inds.shape[0]
-                        rp_idx = torch.randint(0, replay_obs_all.shape[0], (mb_size,))
+                        rp_idx = torch.randint(0, replay_obs_all.shape[0], (mb_size,),
+                                               device=device_obj)
                         _, rp_logprob, _, _ = agent.get_action_and_value(
                             replay_obs_all[rp_idx], replay_actions_all[rp_idx])
-                        bc_loss = -rp_logprob.mean()
+                        bc_loss = -torch.clamp(rp_logprob, min=-BC_LOGPROB_CLAMP).mean()
                         loss = loss + ppo_config.get("bc_coef", 0.05) * bc_loss
+                        bc_log.append(float(bc_loss))
+
+                    if anchor_net is not None:
+                        with torch.no_grad():
+                            teacher_mu = anchor_net(b_obs[mb_inds])
+                        anchor_loss = torch.nn.functional.mse_loss(
+                            agent.actor_mean(b_obs[mb_inds]), teacher_mu)
+                        loss = loss + anchor_coef * anchor_loss
+                        anchor_log.append(float(anchor_loss))
 
                     optimizer.zero_grad()
                     loss.backward()
@@ -700,7 +962,12 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
                 # target-KL early stop (official PPO): halt further epochs once
                 # the policy moved too far from the rollout distribution.
-                if ppo_config.get("target_kl") is not None and approx_kl > ppo_config["target_kl"]:
+                kl_gate = task_target_kl
+                if anchor_net is not None and kl_gate is not None:
+                    # Distillation must move the policy far from the rollout
+                    # distribution; the PPO gate would cut every epoch short.
+                    kl_gate = max(kl_gate, 0.5)
+                if kl_gate is not None and approx_kl > kl_gate:
                     if verbose and iteration % 10 == 0:
                         print(f"  [KL early-stop] approx_kl={approx_kl.item():.4f} at epoch {epoch+1}")
                     break
@@ -708,11 +975,14 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 if verbose and iteration % 10 == 0:
                     print(f"  [INFO] epoch={epoch+1}/{update_epochs} KL={approx_kl:.4f}")
 
-            original_obs = obs_storage.reshape(-1, obs_dim).numpy()
-            original_actions = act_storage.reshape(-1, action_dim).numpy()
-            original_rewards = rew_storage.reshape(-1).numpy()
-            original_dones = done_storage.reshape(-1).numpy()
-            original_next_obs = final_obs_storage.reshape(-1, obs_dim).numpy()
+            # The replay buffer lives in host (numpy) memory on purpose: it holds
+            # every past task's transitions for the whole run, so keeping it on
+            # the GPU would blow up VRAM once a few tasks are stored.
+            original_obs = obs_storage.reshape(-1, obs_dim).detach().cpu().numpy()
+            original_actions = act_storage.reshape(-1, action_dim).detach().cpu().numpy()
+            original_rewards = rew_storage.reshape(-1).detach().cpu().numpy()
+            original_dones = done_storage.reshape(-1).detach().cpu().numpy()
+            original_next_obs = final_obs_storage.reshape(-1, obs_dim).detach().cpu().numpy()
 
             replay_buffer.add_batch(
                 original_obs, original_actions, original_rewards,
@@ -724,9 +994,12 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 sps = int(global_step / elapsed)
                 avg_reward = rew_storage.mean().item()
                 train_sr = 100.0 * rollout_success / max(1, rollout_episodes)
+                bc_str = f"bc={sum(bc_log)/len(bc_log):.1f} " if bc_log else ""
+                if anchor_log:
+                    bc_str += f"anchor={sum(anchor_log)/len(anchor_log):.4f} "
                 print(f"  [{iteration}/{num_iterations}] step={global_step:,} "
                       f"reward={avg_reward:.3f} train_SR={train_sr:.0f}% "
-                      f"buffer={len(replay_buffer):,} "
+                      f"{bc_str}buffer={len(replay_buffer):,} "
                       f"sps={sps} elapsed={elapsed/60:.1f}min")
 
             if iteration % eval_freq == 0 or iteration == num_iterations:
@@ -735,7 +1008,8 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
                 eval_results = {}
                 for eval_env_id in task_sequence[:task_idx+1]:
-                    sr, avg_r = evaluate_task(agent, eval_env_id, num_eps=eval_eps)
+                    sr, avg_r = evaluate_task(agent, eval_env_id, num_eps=eval_eps,
+                                              backend=backend, device=device)
                     eval_results[eval_env_id] = {"success_rate": sr, "avg_reward": avg_r}
                     if verbose:
                         print(f"    {eval_env_id}: SR={sr:.1f}% avg_R={avg_r:.2f}")
@@ -754,7 +1028,9 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
         envs.close()
 
-        final_results = evaluate_all_tasks(agent, task_sequence[:task_idx+1], num_eps=eval_eps)
+        final_results = evaluate_all_tasks(agent, task_sequence[:task_idx+1],
+                                           num_eps=eval_eps,
+                                           backend=backend, device=device)
         task_key = f"task_{task_idx}_{env_id}"
         all_results[task_key] = {
             "final_eval": final_results,
@@ -767,14 +1043,22 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
             for t, r in final_results.items():
                 print(f"    {t}: SR={r['success_rate']:.1f}% avg_R={r['avg_reward']:.2f}")
 
-        ckpt_path = os.path.join(CKPT_DIR, f"ppo_er_unified_task{task_idx}_{env_id}.pt")
+        # Tag the artefacts so a new run (e.g. the 5-task GPU run) never
+        # overwrites the 12M CPU evidence that is already submitted.
+        ckpt_path = os.path.join(
+            CKPT_DIR, f"ppo_er_unified_task{task_idx}_{env_id}{_tag}.pt")
         torch.save(agent.state_dict(), ckpt_path)
         if verbose:
             print(f"  Checkpoint saved: {ckpt_path}")
 
-    results_path = os.path.join(RESULT_DIR, "ppo_er_unified_results.json")
+    results_path = os.path.join(
+        RESULT_DIR, f"ppo_er_unified_results{_tag}.json" if run_tag
+        else "ppo_er_unified_results.json")
     output = {
         "obs_interface": "unified_42_semantic_slots",
+        "sim_backend": backend,
+        "device": str(device_obj),
+        "run_tag": run_tag,
         "task_sequence": task_sequence,
         "total_timesteps_per_task": steps_per_task,
         "er_config": er_config,
@@ -815,6 +1099,38 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--seqft", action="store_true",
                         help="Run SeqFT baseline (no replay, replay_ratio=0)")
+    parser.add_argument("--sim-backend", choices=["auto", "gpu", "cpu"], default="auto",
+                        help="Physics backend. 'gpu' = one env holding N parallel CUDA "
+                             "sims (official PPO setup); 'cpu' = N separate CPU sims "
+                             "(the original port, ~30x slower). 'auto' picks gpu when "
+                             "CUDA is available. NOTE: SAPIEN has no ROCm backend, so an "
+                             "AMD GPU always falls back to cpu.")
+    parser.add_argument("--num-envs", type=int, default=None,
+                        help="Override rollout envs (default: 512 on gpu, 16 on cpu)")
+    parser.add_argument("--num-steps", type=int, default=None,
+                        help="Override rollout steps per env (default: 50 on gpu, 512 on cpu)")
+    parser.add_argument("--num-minibatches", type=int, default=None,
+                        help="Override minibatches per update. With --num-envs 128 "
+                             "--num-steps 64 (batch 8,192) set this to 16 to keep the "
+                             "archived baseline's optimizer schedule (gradient steps, "
+                             "not just samples, drive how fast a task converges).")
+    parser.add_argument("--run-tag", type=str, default=None,
+                        help="Suffix for result/checkpoint filenames, e.g. 'gpu5task'. "
+                             "Omit to reuse the original names (the 12M CPU evidence).")
+    parser.add_argument("--pretrain-ckpt", type=str, default="",
+                        help="Per-task warm start, TASK=PATH[,TASK=PATH...]. The "
+                             "checkpoint is loaded when the sequence reaches that "
+                             "task, e.g. StackCube-v1 from its official PPO ckpt.")
+    parser.add_argument("--anchor-task", type=str, default="",
+                        help="Distil a frozen expert into the shared actor for "
+                             "TASK=PATH[,TASK=PATH...] instead of copying its "
+                             "weights in (a hard copy evicts the other tasks).")
+    parser.add_argument("--anchor-coef", type=float, default=2.0,
+                        help="Weight of the mean-matching distillation loss.")
+    parser.add_argument("--pretrain-freeze-task", action="store_true",
+                        help="For warm-started tasks, freeze the actor for the "
+                             "whole phase and only fit the critic. Use when the "
+                             "policy comes from a separate pretraining stage.")
     args = parser.parse_args()
 
     task_seq = [t.strip() for t in args.task_sequence.split(",")]
@@ -824,15 +1140,83 @@ if __name__ == "__main__":
             print(f"ERROR: Unknown task '{t}'. Available: {list(TASK_INFO.keys())}")
             sys.exit(1)
 
+    # -- backend / device ------------------------------------------------
+    sim_backend = args.sim_backend
+    if sim_backend == "auto":
+        sim_backend = "gpu" if torch.cuda.is_available() else "cpu"
+    if sim_backend == "gpu" and not torch.cuda.is_available():
+        print("ERROR: --sim-backend gpu requires CUDA. SAPIEN cannot run physics on "
+              "a non-NVIDIA GPU (no ROCm backend), so use --sim-backend cpu.")
+        sys.exit(1)
+    device = "cuda" if sim_backend == "gpu" else "cpu"
+
+    ppo_cfg = dict(PPO_CONFIG_GPU if sim_backend == "gpu" else PPO_CONFIG_CPU)
+    if args.num_envs is not None:
+        ppo_cfg["num_envs"] = args.num_envs
+    if args.num_steps is not None:
+        ppo_cfg["num_steps"] = args.num_steps
+    if args.num_minibatches is not None:
+        ppo_cfg["num_minibatches"] = args.num_minibatches
+    # Defaults already match: 16x512 -> 16 minibatches of 512 (CPU),
+    # 512x50 -> 32 minibatches of 800 (GPU). Only recompute when the user
+    # overrides the rollout shape, keeping minibatches at ~800 samples.
+    # An explicit --num-minibatches always wins: re-deriving it here would
+    # silently undo a deliberate choice to mirror the baseline schedule.
+    if (args.num_envs is not None or args.num_steps is not None) \
+            and args.num_minibatches is None:
+        ppo_cfg["num_minibatches"] = max(
+            1, (ppo_cfg["num_envs"] * ppo_cfg["num_steps"]) // 800)
+
     er_cfg = ER_CONFIG.copy()
     er_cfg["replay_ratio"] = 0.0 if args.seqft else args.replay_ratio
     er_cfg["buffer_per_task"] = args.buffer_per_task
 
+    pretrain_ckpts = {}
+    for item in args.pretrain_ckpt.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            print(f"ERROR: --pretrain-ckpt entry '{item}' is not TASK=PATH")
+            sys.exit(1)
+        k, _, v = item.partition("=")
+        pretrain_ckpts[k.strip()] = v.strip()
+    for k, v in pretrain_ckpts.items():
+        if k not in task_seq:
+            print(f"ERROR: --pretrain-ckpt task '{k}' is not in the task sequence")
+            sys.exit(1)
+        if not os.path.exists(v):
+            print(f"ERROR: --pretrain-ckpt path does not exist: {v}")
+            sys.exit(1)
+
+    expert_anchors = {}
+    for item in args.anchor_task.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            print(f"ERROR: --anchor-task entry '{item}' is not TASK=PATH")
+            sys.exit(1)
+        k, _, v = item.partition("=")
+        expert_anchors[k.strip()] = v.strip()
+    for k, v in expert_anchors.items():
+        if k not in task_seq:
+            print(f"ERROR: --anchor-task task '{k}' is not in the task sequence")
+            sys.exit(1)
+        if not os.path.exists(v):
+            print(f"ERROR: --anchor-task path does not exist: {v}")
+            sys.exit(1)
+
     print(f"{'='*70}")
-    print(f"ManiSkill3 CL - PPO + {'SeqFT' if args.seqft else 'ER'}  (unified 42-dim obs)")
+    print(f"ManiSkill3 CL - PPO + {'SeqFT' if args.seqft else 'ER'}  (unified 48-dim obs)")
     print(f"{'='*70}")
     print(f"Task sequence: {task_seq}")
     print(f"Observation: {UNIFIED_OBS_DIM}-dim semantic slots (no mapping layer, no one-hot)")
+    print(f"Sim backend: {sim_backend}  device={device}"
+          + (f"  ({torch.cuda.get_device_name(0)})" if sim_backend == "gpu" else ""))
+    print(f"Rollout: {ppo_cfg['num_envs']} envs x {ppo_cfg['num_steps']} steps "
+          f"= {ppo_cfg['num_envs']*ppo_cfg['num_steps']:,} per update, "
+          f"{ppo_cfg['num_minibatches']} minibatches")
     if args.task_steps is not None:
         step_budgets = [int(x.strip()) for x in args.task_steps.split(",")]
         if len(step_budgets) != len(task_seq):
@@ -850,7 +1234,15 @@ if __name__ == "__main__":
         task_sequence=task_seq,
         total_timesteps_per_task=step_budgets,
         er_config=er_cfg,
+        ppo_config=ppo_cfg,
         eval_freq=args.eval_freq,
         eval_eps=args.eval_eps,
         seed=args.seed,
+        backend=sim_backend,
+        device=device,
+        run_tag=args.run_tag,
+        pretrain_ckpts=pretrain_ckpts,
+        pretrain_freeze_task=args.pretrain_freeze_task,
+        expert_anchors=expert_anchors,
+        anchor_coef=args.anchor_coef,
     )
