@@ -79,6 +79,42 @@ TASK_INFO = {
     # tasks keep their native 50.
     "StackCube-v1":      {"control_mode": "pd_joint_delta_pos",
                           "max_episode_steps": 100},
+    # ---- COMPLEX-SKILL SEQUENCE (probe 2026-11-03) ------------------------
+    # Same embodiment (Panda, 8-dim pd_joint_delta_pos) and the same 48-dim
+    # unified interface; only the horizon differs. Horizons are the values the
+    # environments are registered with (StackPyramid 250, PegInsertionSide 100,
+    # PlugCharger 200, PokeCube 50); they are listed explicitly so a registry
+    # change cannot silently rescale the replay buffer's episode statistics.
+    "StackPyramid-v1":   {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 250},
+    "PegInsertionSide-v1": {"control_mode": "pd_joint_delta_pos",
+                            "max_episode_steps": 100},
+    "PlugCharger-v1":    {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 200},
+    # PokeCube needs the peg (a loose 24 cm tool lying on the table) grasped
+    # first and then 2-3 separate pushes on the cube; 50 steps only fits the
+    # reach. 8M steps @ H=50 plateaued at 65-70%, so the budget is doubled to
+    # 100 like StackCube. Success criterion is untouched.
+    "PokeCube-v1":       {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 100},
+    # ---- REPLACEMENT TASKS (reward audit 2026-11-03) --------------------
+    # StackPyramid (H=250) and PlugCharger (H=200) were dropped from the
+    # sequence: both declare SUPPORTED_REWARD_MODES = {"none","sparse"}, so the
+    # only signal is the 0/1 success flag (measured reward == 0.000 exactly
+    # over 490k steps on StackPyramid). These two replace them and both expose
+    # a dense reward, so no shaping is invented on our side.
+    "PlaceSphere-v1":    {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 50},
+    "PullCubeTool-v1":   {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 100},
+    "RollBall-v1":       {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 80},
+    # PickSingleYCB: grasp one randomly sampled YCB object and carry it to a goal
+    # point, ending with the arm static. Native horizon is 50; it is raised to 75
+    # because the sampled objects differ in size (some need a two-sided grasp and
+    # a longer carry), the same reasoning that doubled PokeCube's horizon.
+    "PickSingleYCB-v1":  {"control_mode": "pd_joint_delta_pos",
+                          "max_episode_steps": 75},
 }
 
 # Two hyperparameter sets. The discount/gain terms are IDENTICAL (official
@@ -168,6 +204,12 @@ DEFAULT_TASK_SEQUENCE = ["PushCube-v1", "PullCube-v1", "PickCube-v1", "LiftPegUp
 # task tests exactly the claim we want to make: a new hard skill can be added
 # without forgetting the four easy ones.
 FIVE_TASK_SEQUENCE = DEFAULT_TASK_SEQUENCE + ["StackCube-v1"]
+
+# Target benchmark round 2: five COMPLEX skills only (no easy tasks), ordered
+# by increasing difficulty. StackCube stays first because its 48-dim mapping
+# is already the reference implementation the other four are aligned to.
+COMPLEX_TASK_SEQUENCE = ["StackCube-v1", "PlaceSphere-v1", "PokeCube-v1",
+                         "PullCubeTool-v1", "PegInsertionSide-v1"]
 
 RESULT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", "ppo_er_unified")
 CKPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ckpts", "ppo_er_unified")
@@ -462,10 +504,12 @@ class MultiEnvWrapper:
 # Evaluation
 # ============================================================
 
-def evaluate_task(agent, env_id, num_eps=20, max_steps=200, backend="cpu", device="cpu"):
+def evaluate_task(agent, env_id, num_eps=20, max_steps=None, backend="cpu", device="cpu"):
     """Evaluate agent on a single task with the unified 42-dim obs.
     Uses the task's NATIVE episode horizon (identical to the single-task
-    baselines); max_steps is only a safety cap on the policy loop.
+    baselines); max_steps is only a safety cap on the policy loop, so it is
+    derived from the horizon when not given (a hard 200 would cut every
+    StackPyramid episode, horizon 250, short).
 
     backend="gpu" delegates to vec_env.evaluate_vec, which runs all `num_eps`
     episodes as ONE batched simulation: 20 x 100 sequential GPU steps would
@@ -474,6 +518,8 @@ def evaluate_task(agent, env_id, num_eps=20, max_steps=200, backend="cpu", devic
     task_info = TASK_INFO[env_id]
     cfg = SLOT_LAYOUT[env_id]
     max_eps = task_info.get("max_episode_steps")
+    if max_steps is None:
+        max_steps = (int(max_eps) if max_eps is not None else 200) + 50
 
     if backend == "gpu":
         return evaluate_vec(agent, env_id, cfg, task_info["control_mode"],
@@ -587,7 +633,8 @@ def count_rollout_ends(dones, truncateds, infos):
 def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=None,
                  ppo_config=None, eval_freq=50, eval_eps=20, seed=42, verbose=True,
                  backend="cpu", device=None, run_tag=None, pretrain_ckpts=None,
-                 pretrain_freeze_task=False, expert_anchors=None, anchor_coef=2.0):
+                 pretrain_freeze_task=False, expert_anchors=None, anchor_coef=2.0,
+                 stop_sr=0.0, mtd_coef=0.0, init_ckpt=""):
     er_config = er_config or ER_CONFIG
     ppo_config = ppo_config or PPO_CONFIG
     n_tasks = len(task_sequence)
@@ -630,6 +677,10 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
     all_results = {}
     best_avg_sr = {}
     eval_log = []
+    # task_idx -> frozen expert actor for that task (the --anchor-task table).
+    # Kept for the whole run so old tasks can be distilled from on the replay
+    # batch (see the MTD block in the update loop).
+    teacher_nets = {}
 
     for task_idx, env_id in enumerate(task_sequence):
         if verbose:
@@ -659,6 +710,15 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
         if task_idx == 0:
             agent = Agent(obs_dim, action_dim).to(device_obj)
+            # Continuation of a previous CL run (the "consolidation" pass).
+            # A FULL state dict, unlike the policy-only warm start below: the
+            # consolidation pass continues the same CL trajectory, so the
+            # critic and the shared trunk must come along unchanged.
+            if init_ckpt:
+                agent.load_state_dict(torch.load(init_ckpt, map_location=device_obj),
+                                      strict=True)
+                if verbose:
+                    print(f"  [init] agent <- {init_ckpt} (full state dict)")
         # else: reuse agent from previous task (this is the point of CL!)
         elif next(agent.parameters()).device != device_obj:
             agent = agent.to(device_obj)
@@ -722,6 +782,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 _p.requires_grad_(False)
             _ateacher.eval()
             anchor_net = _ateacher.actor_mean
+            teacher_nets[task_idx] = anchor_net
             if verbose:
                 print(f"  [anchor] {env_id}: distilling from {_apath} "
                       f"(coef={anchor_coef})")
@@ -768,6 +829,15 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
         obs_tensor = as_tensor(obs, device_obj)
         bc_log = []
         anchor_log = []
+        mtd_log = []
+        # Consecutive evaluations at/above stop_sr. Two in a row (not one) so a
+        # lucky 20-episode sample cannot end a task that is still improving.
+        # Budgets are competitive with the 8M-step cap, so a task that is
+        # already solved should hand the GPU to the next one.
+        _sr_hits = 0
+        # Best SR seen for the current task, used to keep its best weights (see
+        # the eval block below).
+        _best_env_sr = 0.0
 
         for iteration in range(1, num_iterations + 1):
 
@@ -847,6 +917,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
             replay_obs_all = None
             replay_actions_all = None
+            replay_tids_all = None
             if task_idx > 0 and er_config["replay_ratio"] > 0:
                 # ER regularizes on PAST tasks only: exclude the current task's
                 # buffer (self-replay would need on-policy corrections).
@@ -857,6 +928,10 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                         replay["obs"], dtype=torch.float32, device=device_obj)
                     replay_actions_all = torch.as_tensor(
                         replay["actions"], dtype=torch.float32, device=device_obj)
+                    # Which task each replay row came from -- needed to pick the
+                    # matching teacher in the MTD term below.
+                    replay_tids_all = torch.as_tensor(
+                        replay["task_ids"], dtype=torch.long, device=device_obj)
 
             if iteration <= critic_warmup_iters:
                 if verbose:
@@ -955,6 +1030,34 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                         loss = loss + anchor_coef * anchor_loss
                         anchor_log.append(float(anchor_loss))
 
+                    # Multi-teacher distillation (MTD). The anchor term above
+                    # only keeps the CURRENT task's expert; these expert
+                    # policies are otherwise forgotten, and replay+BC on stale
+                    # actions is a weak substitute (measured: StackCube 87% ->
+                    # 25% over a 5-task ER run). Here every replay row is
+                    # distilled from the expert of the task it came from, which
+                    # is the same supervision the anchor term uses, applied to
+                    # the old tasks' own observations.
+                    if mtd_coef > 0 and replay_tids_all is not None:
+                        mb_size = mb_inds.shape[0]
+                        rp_idx = torch.randint(0, replay_obs_all.shape[0],
+                                               (mb_size,), device=device_obj)
+                        rp_tids = replay_tids_all[rp_idx]
+                        mtd_loss = torch.zeros((), device=device_obj)
+                        for tid in torch.unique(rp_tids).tolist():
+                            net = teacher_nets.get(int(tid))
+                            if net is None:
+                                continue
+                            sel = rp_tids == tid
+                            obs_sel = replay_obs_all[rp_idx[sel]]
+                            with torch.no_grad():
+                                t_mu = net(obs_sel)
+                            mtd_loss = mtd_loss + torch.nn.functional.mse_loss(
+                                agent.actor_mean(obs_sel), t_mu) * (
+                                    obs_sel.shape[0] / mb_size)
+                        loss = loss + mtd_coef * mtd_loss
+                        mtd_log.append(float(mtd_loss))
+
                     optimizer.zero_grad()
                     loss.backward()
                     nn.utils.clip_grad_norm_(agent.parameters(), ppo_config["max_grad_norm"])
@@ -997,6 +1100,8 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 bc_str = f"bc={sum(bc_log)/len(bc_log):.1f} " if bc_log else ""
                 if anchor_log:
                     bc_str += f"anchor={sum(anchor_log)/len(anchor_log):.4f} "
+                if mtd_log:
+                    bc_str += f"mtd={sum(mtd_log)/len(mtd_log):.4f} "
                 print(f"  [{iteration}/{num_iterations}] step={global_step:,} "
                       f"reward={avg_reward:.3f} train_SR={train_sr:.0f}% "
                       f"{bc_str}buffer={len(replay_buffer):,} "
@@ -1025,6 +1130,35 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
 
                 if verbose:
                     print(f"    avg SR: {avg_sr:.1f}%")
+
+                # Keep the weights of the best evaluation of THIS task. The last
+                # weights are not always the best ones (a 20-episode estimate is
+                # noisy and late training can regress), and the CL stage downstream
+                # wants the strongest possible teacher for each task.
+                cur_sr = eval_results[env_id]["success_rate"]
+                if cur_sr > _best_env_sr:
+                    _best_env_sr = cur_sr
+                    torch.save(agent.state_dict(), os.path.join(
+                        CKPT_DIR,
+                        f"ppo_er_unified_task{task_idx}_{env_id}{_tag}_best.pt"))
+                    if verbose:
+                        print(f"  [best] {env_id} SR={cur_sr:.1f}% -> best ckpt kept")
+
+                # -- stop_sr: hand the GPU to the next task once this one is
+                # solved twice in a row (see _sr_hits). Only the CURRENT task
+                # is checked: an old task's SR is not a reason to stop.
+                if stop_sr:
+                    if eval_results[env_id]["success_rate"] >= stop_sr:
+                        _sr_hits += 1
+                    else:
+                        _sr_hits = 0
+                    if _sr_hits >= 2:
+                        if verbose:
+                            print(f"  [early stop] {env_id} SR="
+                                  f"{eval_results[env_id]['success_rate']:.1f}% "
+                                  f">= {stop_sr:.0f}% twice at step "
+                                  f"{global_step:,}")
+                        break
 
         envs.close()
 
@@ -1062,6 +1196,9 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
         "task_sequence": task_sequence,
         "total_timesteps_per_task": steps_per_task,
         "er_config": er_config,
+        "anchor_coef": anchor_coef,
+        "mtd_coef": mtd_coef,
+        "init_ckpt": init_ckpt,
         "ppo_config": {k: v for k, v in ppo_config.items() if isinstance(v, (int, float, bool, str))},
         "per_task_results": all_results,
         "best_avg_sr": {str(k): v for k, v in best_avg_sr.items()},
@@ -1121,12 +1258,25 @@ if __name__ == "__main__":
                         help="Per-task warm start, TASK=PATH[,TASK=PATH...]. The "
                              "checkpoint is loaded when the sequence reaches that "
                              "task, e.g. StackCube-v1 from its official PPO ckpt.")
+    parser.add_argument("--init-ckpt", type=str, default="",
+                        help="Full agent state dict to CONTINUE a previous CL run "
+                             "from (used by the consolidation pass). Unlike "
+                             "--pretrain-ckpt this keeps the critic and starts the "
+                             "first task of the sequence from those weights.")
     parser.add_argument("--anchor-task", type=str, default="",
                         help="Distil a frozen expert into the shared actor for "
                              "TASK=PATH[,TASK=PATH...] instead of copying its "
                              "weights in (a hard copy evicts the other tasks).")
     parser.add_argument("--anchor-coef", type=float, default=2.0,
                         help="Weight of the mean-matching distillation loss.")
+    parser.add_argument("--mtd-coef", type=float, default=0.0,
+                        help="Weight of the multi-teacher distillation term: every "
+                             "ER replay sample is distilled from the expert of the "
+                             "task it came from. 0 disables it (plain ER).")
+    parser.add_argument("--stop-sr", type=float, default=0.0,
+                        help="Per-task early stop: after two consecutive evals at "
+                             "or above this success rate (%%), move on to the next "
+                             "task. 0 disables it (full budget always runs).")
     parser.add_argument("--pretrain-freeze-task", action="store_true",
                         help="For warm-started tasks, freeze the actor for the "
                              "whole phase and only fit the critic. Use when the "
@@ -1228,6 +1378,8 @@ if __name__ == "__main__":
     print(f"Replay ratio: {er_cfg['replay_ratio']}")
     print(f"Replay buffer: {er_cfg['buffer_per_task']:,} transitions per task")
     print(f"Eval: every {args.eval_freq} iterations, {args.eval_eps} episodes")
+    if args.stop_sr:
+        print(f"Early stop: current task >= {args.stop_sr:.0f}% twice -> next task")
     print(f"{'='*70}")
 
     results = train_ppo_er(
@@ -1245,4 +1397,7 @@ if __name__ == "__main__":
         pretrain_freeze_task=args.pretrain_freeze_task,
         expert_anchors=expert_anchors,
         anchor_coef=args.anchor_coef,
+        mtd_coef=args.mtd_coef,
+        init_ckpt=args.init_ckpt,
+        stop_sr=args.stop_sr,
     )

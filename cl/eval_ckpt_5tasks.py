@@ -11,13 +11,20 @@ from ppo_er_unified import Agent, evaluate_all_tasks, UNIFIED_OBS_DIM
 
 TASKS = ["PushCube-v1", "PullCube-v1", "PickCube-v1",
          "LiftPegUpright-v1", "StackCube-v1"]
-SHORT = ["PushCube", "PullCube", "PickCube", "LiftPeg", "StackCube"]
 
 ap = argparse.ArgumentParser()
 ap.add_argument("ckpts", nargs="+")
 ap.add_argument("--eps", type=int, default=50)
 ap.add_argument("--action-dim", type=int, default=8)
+ap.add_argument("--tasks", type=str, default="",
+                help="Comma-separated task list to evaluate. Default: the 5-task "
+                     "easy sequence. Pass the complex sequence explicitly, e.g. "
+                     "--tasks StackCube-v1,StackPyramid-v1,...")
 args = ap.parse_args()
+
+if args.tasks:
+    TASKS = [t.strip() for t in args.tasks.split(",") if t.strip()]
+SHORT = [t[:-3] if t.endswith("-v1") else t for t in TASKS]
 
 for ck in args.ckpts:
     sd = torch.load(ck, map_location="cpu")
