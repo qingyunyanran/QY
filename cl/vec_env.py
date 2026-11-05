@@ -188,7 +188,7 @@ class GpuVecEnv:
 
 @torch.no_grad()
 def evaluate_vec(agent, env_id, cfg, control_mode, device, num_eps=20,
-                 max_episode_steps=None, deterministic=True):
+                 max_episode_steps=None, deterministic=True, tid=0):
     """Evaluate `agent` on `env_id` with all `num_eps` episodes in parallel.
 
     This is the GPU analogue of `evaluate_task` in the training scripts. The
@@ -220,7 +220,7 @@ def evaluate_vec(agent, env_id, cfg, control_mode, device, num_eps=20,
 
     steps = 0
     while not bool(finished.all()) and steps < horizon:
-        action = agent.get_action(obs, deterministic=deterministic)
+        action = agent.get_action(obs, deterministic=deterministic, tid=tid)
         alive = (~finished).float()
         obs, rew, done, trunc, info, _ = env.step(action)
 

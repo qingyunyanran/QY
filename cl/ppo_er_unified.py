@@ -735,12 +735,86 @@ def count_rollout_ends(dones, truncateds, infos):
     return n_succ, n_done
 
 
+def load_task_expert(agent, task_idx, actor_sd, include_base=True):
+    """Load a single-task expert (actor_mean.* only) into the multi-head layout.
+
+    The expert was trained with n_heads=1, so its actor is one flat 7-entry
+    Sequential. Head keys are POSITIONAL, hence the expert of task i must go to
+    head i-1; writing it into actor_mean would overwrite task 0's adapter.
+
+    include_base=False keeps the CURRENT shared base and only drops the
+    expert's top (last hidden layer + output) into this task's head. That is
+    what appending a task to an already-consolidated CL run needs: the shared
+    base carries the earlier tasks, so copying an expert's base over it would
+    erase them (measured: 5-task sequence -> StackCube 95% while every earlier
+    task fell to 0%).
+
+    Returns (body_keys, adapter_keys) for logging.
+    """
+    _nb = Agent.SHARED_BASE_LAYERS
+    tid = int(task_idx)
+    # task_idx == 0 would index actor_heads_extra[-1] -- Python wraps negative
+    # indices, so the expert of task 0 would silently land in the LAST head.
+    if tid < 1:
+        raise IndexError(f"load_task_expert needs task_idx >= 1 (task 0 lives in "
+                         f"actor_mean itself), got {task_idx}")
+    if tid > len(agent.actor_heads_extra):
+        raise IndexError(f"task_idx {tid} but only "
+                         f"{len(agent.actor_heads_extra)} extra heads exist")
+    body = {k: v for k, v in actor_sd.items() if int(k.split(".")[0]) < _nb}
+    adapt = {str(int(k.split(".")[0]) - _nb) + k[k.index("."):]: v
+             for k, v in actor_sd.items() if int(k.split(".")[0]) >= _nb}
+    if not adapt:
+        raise RuntimeError("expert checkpoint has no adapter layers "
+                           f"(keys: {sorted(actor_sd)[:4]})")
+    if include_base:
+        agent.actor_mean.load_state_dict(body, strict=False)
+    agent.actor_heads_extra[int(task_idx) - 1].load_state_dict(adapt, strict=True)
+    return body, adapt
+
+
+def expand_state_dict_load(agent, sd, verbose=True, source=""):
+    """Load a checkpoint from a SHORTER task sequence into a longer one.
+
+    Actor head keys ("actor_heads_extra.<i>.*") are POSITIONAL: index i is the
+    head of task i+1 of the training sequence. Continuing a 6-task run into a
+    9-task sequence therefore only works if the 6 old tasks keep indices 0..5
+    and the new tasks are appended at the end. A non-prefix layout is refused
+    here instead of silently binding a head to the wrong task, and a width
+    mismatch still raises inside load_state_dict (a 7-action checkpoint cannot
+    be loaded into the 8-action head).
+
+    Returns (heads_kept, heads_fresh, missing_keys).
+    """
+    missing, unexpected = agent.load_state_dict(sd, strict=False)
+    if unexpected:
+        raise RuntimeError(
+            f"{source}: checkpoint has keys this agent does not know: "
+            f"{sorted(unexpected)[:6]}")
+    have = {int(k.split(".")[1]) for k in sd
+            if k.startswith("actor_heads_extra.")}
+    want = set(range(agent.n_heads - 1))
+    if have - want:
+        raise RuntimeError(
+            f"{source}: checkpoint carries heads {sorted(have)} but this run "
+            f"only has {sorted(want)} -- append new tasks, do not reorder them")
+    if have != set(range(len(have))):
+        raise RuntimeError(
+            f"{source}: heads {sorted(have)} are not a contiguous prefix; "
+            f"positional reuse would bind a head to the wrong task")
+    if verbose:
+        print(f"  [init] agent <- {source} (expanded: kept heads {sorted(have)}, "
+              f"fresh heads {sorted(want - have)}, missing keys {len(missing)})")
+    return have, want - have, missing
+
+
 def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=None,
                  ppo_config=None, eval_freq=50, eval_eps=20, seed=42, verbose=True,
                  backend="cpu", device=None, run_tag=None, pretrain_ckpts=None,
                  pretrain_freeze_task=False, expert_anchors=None, anchor_coef=2.0,
-                 stop_sr=0.0, mtd_coef=0.0, init_ckpt="", n_heads=1,
-                 trunk_lr_mult=1.0, private_base_tasks=()):
+                 stop_sr=0.0, mtd_coef=0.0, init_ckpt="", init_allow_expand=False,
+                 n_heads=1, trunk_lr_mult=1.0, private_base_tasks=(),
+                 pretrain_adapter_only=False):
     er_config = er_config or ER_CONFIG
     ppo_config = ppo_config or PPO_CONFIG
     n_tasks = len(task_sequence)
@@ -828,10 +902,24 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
             # consolidation pass continues the same CL trajectory, so the
             # critic and the shared trunk must come along unchanged.
             if init_ckpt:
-                agent.load_state_dict(torch.load(init_ckpt, map_location=device_obj),
-                                      strict=True)
-                if verbose:
-                    print(f"  [init] agent <- {init_ckpt} (full state dict)")
+                _isd = torch.load(init_ckpt, map_location=device_obj)
+                # Accept both a bare policy dict and a wrapped {"agent": ...}.
+                if isinstance(_isd, dict) and "actor_mean.0.weight" not in _isd:
+                    for _k in ("agent", "model", "state_dict"):
+                        if isinstance(_isd.get(_k), dict):
+                            _isd = _isd[_k]
+                            break
+                if init_allow_expand:
+                    # Continuation into a LONGER task sequence: the checkpoint
+                    # may hold fewer actor heads (and private nets) than this
+                    # run needs. See expand_state_dict_load for the ordering
+                    # rule and the layout checks.
+                    expand_state_dict_load(agent, _isd, verbose=verbose,
+                                           source=init_ckpt)
+                else:
+                    agent.load_state_dict(_isd, strict=True)
+                    if verbose:
+                        print(f"  [init] agent <- {init_ckpt} (full state dict)")
         # else: reuse agent from previous task (this is the point of CL!)
         elif next(agent.parameters()).device != device_obj:
             agent = agent.to(device_obj)
@@ -867,17 +955,10 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 # but its last hidden layer and output layer belong to THIS
                 # task's adapter. Writing them into actor_mean would overwrite
                 # task 0's adapter.
-                _nb = Agent.SHARED_BASE_LAYERS
-                _body = {k: v for k, v in _actor.items()
-                         if int(k.split(".")[0]) < _nb}
-                # teacher adapter ("4.*", "6.*") -> local adapter ("0.*", "2.*")
-                _adapt = {str(int(k.split(".")[0]) - _nb) + k[k.index("."):]: v
-                          for k, v in _actor.items()
-                          if int(k.split(".")[0]) >= _nb}
+                _body, _adapt = load_task_expert(
+                    agent, task_idx, _actor,
+                    include_base=not pretrain_adapter_only)
                 assert _adapt, f"no adapter weights in {_path}"
-                agent.actor_mean.load_state_dict(_body, strict=False)
-                agent.actor_heads_extra[task_idx - 1].load_state_dict(
-                    _adapt, strict=True)
             else:
                 agent.actor_mean.load_state_dict(_actor, strict=True)
             with torch.no_grad():
@@ -892,7 +973,10 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
             # shared trunk, which is the transferable part, is kept.
             layer_init(agent.critic[6], std=1.0)
             if verbose:
-                print(f"  [warm start] {env_id}: actor_mean <- {_path}")
+                _where = ("adapter only, shared base kept"
+                          if (pretrain_adapter_only and agent._trunk is not None
+                              and task_idx > 0) else "actor_mean")
+                print(f"  [warm start] {env_id}: {_where} <- {_path}")
                 print(f"  [warm start] critic.6 re-initialised, trunk kept, "
                       f"actor_logstd reset to {PRETRAIN_LOGSTD}")
                 print(f"  [warm start] actor frozen for {PRETRAIN_FREEZE_ITERS} "
@@ -1441,6 +1525,20 @@ if __name__ == "__main__":
                              "from (used by the consolidation pass). Unlike "
                              "--pretrain-ckpt this keeps the critic and starts the "
                              "first task of the sequence from those weights.")
+    parser.add_argument("--init-allow-expand", action="store_true",
+                        help="With --init-ckpt: the checkpoint may hold FEWER "
+                             "actor heads than this run needs (continuing a "
+                             "sequence with tasks appended at the end). Matching "
+                             "heads are kept, appended tasks start from a fresh "
+                             "head; the task order must keep the old tasks first.")
+    parser.add_argument("--pretrain-adapter-only", action="store_true",
+                        help="With --pretrain-ckpt in a multi-head run: copy only "
+                             "the expert's adapter into its own head and leave the "
+                             "SHARED base alone. Use this when APPENDING tasks to "
+                             "a consolidated run -- the base already carries the "
+                             "earlier tasks and an expert's base would evict them. "
+                             "New tasks then start from the expert's policy head "
+                             "instead of a fresh, randomly initialised one.")
     parser.add_argument("--anchor-task", type=str, default="",
                         help="Distil a frozen expert into the shared actor for "
                              "TASK=PATH[,TASK=PATH...] instead of copying its "
@@ -1609,10 +1707,12 @@ if __name__ == "__main__":
         run_tag=args.run_tag,
         pretrain_ckpts=pretrain_ckpts,
         pretrain_freeze_task=args.pretrain_freeze_task,
+        pretrain_adapter_only=args.pretrain_adapter_only,
         expert_anchors=expert_anchors,
         anchor_coef=args.anchor_coef,
         mtd_coef=args.mtd_coef,
         init_ckpt=args.init_ckpt,
+        init_allow_expand=args.init_allow_expand,
         stop_sr=args.stop_sr,
         n_heads=len(task_seq) if args.multi_head else 1,
         trunk_lr_mult=args.trunk_lr_mult,
