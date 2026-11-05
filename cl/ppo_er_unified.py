@@ -227,8 +227,32 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    """3-layer Tanh MLP, shared actor-critic (separate heads)."""
-    def __init__(self, obs_dim, action_dim, hidden=256):
+    """3-layer Tanh MLP, shared actor-critic (separate heads).
+
+    MULTI-HEAD MODE (n_heads > 1):  SHARED BASE + PER-TASK ADAPTER
+    -------------------------------------------------------------
+    The first two layers (obs -> 256 -> 256) are shared by every task; the last
+    hidden layer plus the output layer are private per task. Sharing only the
+    base and letting each task own the top of the network is what keeps two
+    tasks with opposite feature needs from fighting over one representation.
+
+    Measured, per-task head on a fully shared trunk (c6v3_mh, 100 episodes):
+    StackCube 78% -> 27% while PegInsertionSide only reached 49% (35% right
+    after its own phase) -- the interference runs both ways. Lowering the trunk
+    lr to 0.1 did not help, and 0.3 was worse for Peg. Re-fitting just the heads
+    with the trunk frozen recovered only 56/58.
+
+    Layout, so that head 0 keeps the historical `actor_mean` keys:
+      actor_mean[0:4]  = shared base  (Linear, Tanh, Linear, Tanh)
+      actor_mean[4:7]  = task 0 adapter (Linear, Tanh, Linear->action)
+      actor_heads_extra[k-1] = same adapter for task k
+    This is the same 7-entry shape as the single-head net, so a single-head
+    expert checkpoint loads into task 0 unchanged and reproduces the expert
+    exactly (base = its first two layers, adapter = its last hidden layer plus
+    output layer).
+    """
+    def __init__(self, obs_dim, action_dim, hidden=256, n_heads=1,
+                 private_base_ids=()):
         super().__init__()
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, hidden)),
@@ -249,19 +273,98 @@ class Agent(nn.Module):
             layer_init(nn.Linear(hidden, action_dim), std=0.01 * np.sqrt(2)),
         )
         self.actor_logstd = nn.Parameter(torch.ones(1, action_dim) * -0.5)
+        self.action_dim = action_dim
+        self.n_heads = max(1, int(n_heads))
+        # Plain lists (NOT nn.ModuleList) so the pieces are not re-registered as
+        # separate submodules: same tensors, same updates, single optimiser
+        # entry, and single-head checkpoints keep loading with strict=True.
+        # SHARED_BASE_LAYERS = how many leading entries of actor_mean every task
+        # sees; the rest (last hidden layer + output layer) is per task.
+        if self.n_heads > 1:
+            self._trunk = list(self.actor_mean[:Agent.SHARED_BASE_LAYERS])
+            self._adapter0 = list(self.actor_mean[Agent.SHARED_BASE_LAYERS:])
+            self.actor_heads_extra = nn.ModuleList([
+                nn.Sequential(
+                    layer_init(nn.Linear(hidden, hidden)),
+                    nn.Tanh(),
+                    layer_init(nn.Linear(hidden, action_dim), std=0.01 * np.sqrt(2)),
+                ) for _ in range(self.n_heads - 1)])
+        else:
+            self._trunk = None
+            self._adapter0 = list(self.actor_mean)
+        # Outlier tasks (PegInsertionSide) get a private base as well: measured,
+        # the two requirements are opposite -- with the base plastic for
+        # StackCube (mult 0.5) Peg drops to 60%, with it held still (0.1) Stack
+        # never leaves 0%. Isolation is per task, so only the outlier pays for
+        # it; the other tasks still share one base and transfer between them.
+        self.private_base_ids = {int(i) for i in private_base_ids}
+        if self.n_heads > 1 and self.private_base_ids:
+            self.private_nets = nn.ModuleDict({
+                str(tid): nn.Sequential(
+                    layer_init(nn.Linear(obs_dim, hidden)),
+                    nn.Tanh(),
+                    layer_init(nn.Linear(hidden, hidden)),
+                    nn.Tanh(),
+                    layer_init(nn.Linear(hidden, hidden)),
+                    nn.Tanh(),
+                    layer_init(nn.Linear(hidden, action_dim), std=0.01 * np.sqrt(2)),
+                ) for tid in sorted(self.private_base_ids)})
+
+    # How many leading actor_mean entries are the shared base: the first Linear
+    # and the second Linear with their Tanh. The remaining 3 entries form the
+    # per-task adapter (Linear, Tanh, Linear->action).
+    SHARED_BASE_LAYERS = 4
+
+    def adapter_seq(self, tid):
+        """The per-task adapter block (Sequential) for task `tid`."""
+        return self.actor_mean[Agent.SHARED_BASE_LAYERS:] if int(tid) <= 0 \
+            else self.actor_heads_extra[int(tid) - 1]
+
+    def head_mean(self, x, tid=0):
+        """Actor mean from the head of task `tid`.
+
+        `tid` may be an int (whole batch belongs to one task) or a LongTensor
+        with one task index per row, which is what the replay-based terms need
+        (a minibatch mixes rows from several tasks).
+        """
+        if self._trunk is None:
+            return self.actor_mean(x)
+        if torch.is_tensor(tid):
+            if tid.numel() == 1:
+                return self.head_mean(x, int(tid.reshape(-1)[0].item()))
+            out = torch.zeros((x.shape[0], self.action_dim),
+                              dtype=x.dtype, device=x.device)
+            for t in torch.unique(tid).tolist():
+                sel = tid == t
+                out[sel] = self.head_mean(x[sel], int(t))
+            return out
+        tid = int(tid)
+        _priv = getattr(self, "private_nets", None)
+        if _priv is not None and str(tid) in _priv:
+            return _priv[str(tid)](x)
+        h = x
+        for layer in self._trunk:
+            h = layer(h)
+        return self.adapter_seq(tid)(h)
 
     def get_value(self, x):
         return self.critic(x).squeeze(-1)
 
-    def get_action(self, x, deterministic=False):
-        mean = self.actor_mean(x)
+    def trunk_parameters(self):
+        """Parameters of the shared trunk (empty in single-head mode)."""
+        if self._trunk is None:
+            return []
+        return [p for layer in self._trunk for p in layer.parameters()]
+
+    def get_action(self, x, deterministic=False, tid=0):
+        mean = self.head_mean(x, tid)
         if deterministic:
             return mean
         std = torch.exp(self.actor_logstd.expand_as(mean))
         return Normal(mean, std).sample()
 
-    def get_action_and_value(self, x, action=None):
-        mean = self.actor_mean(x)
+    def get_action_and_value(self, x, action=None, tid=0):
+        mean = self.head_mean(x, tid)
         std = torch.exp(self.actor_logstd.expand_as(mean))
         dist = Normal(mean, std)
         if action is None:
@@ -504,7 +607,8 @@ class MultiEnvWrapper:
 # Evaluation
 # ============================================================
 
-def evaluate_task(agent, env_id, num_eps=20, max_steps=None, backend="cpu", device="cpu"):
+def evaluate_task(agent, env_id, num_eps=20, max_steps=None, backend="cpu", device="cpu",
+                  tid=0):
     """Evaluate agent on a single task with the unified 42-dim obs.
     Uses the task's NATIVE episode horizon (identical to the single-task
     baselines); max_steps is only a safety cap on the policy loop, so it is
@@ -524,7 +628,7 @@ def evaluate_task(agent, env_id, num_eps=20, max_steps=None, backend="cpu", devi
     if backend == "gpu":
         return evaluate_vec(agent, env_id, cfg, task_info["control_mode"],
                             device=device, num_eps=num_eps,
-                            max_episode_steps=max_eps)
+                            max_episode_steps=max_eps, tid=tid)
 
     kwargs = dict(
         num_envs=1, obs_mode="state_dict",
@@ -555,7 +659,8 @@ def evaluate_task(agent, env_id, num_eps=20, max_steps=None, backend="cpu", devi
             ep_success = False
             while not (done or truncated) and steps < max_steps:
                 obs_t = as_tensor(obs, device).unsqueeze(0)
-                action = agent.get_action(obs_t, deterministic=True).cpu().numpy()[0]
+                action = agent.get_action(obs_t, deterministic=True,
+                                          tid=tid).cpu().numpy()[0]
                 action = np.clip(action, -1.0, 1.0)
                 obs_raw, rew, done, truncated, info = env.step(action[None, :])  # (8,) -> (1,8)
                 obs = build_unified_obs(obs_raw, cfg)
@@ -587,9 +692,9 @@ def evaluate_task(agent, env_id, num_eps=20, max_steps=None, backend="cpu", devi
 
 def evaluate_all_tasks(agent, task_sequence, num_eps=20, backend="cpu", device="cpu"):
     results = {}
-    for env_id in task_sequence:
+    for tid, env_id in enumerate(task_sequence):
         sr, avg_r = evaluate_task(agent, env_id, num_eps,
-                                  backend=backend, device=device)
+                                  backend=backend, device=device, tid=tid)
         results[env_id] = {"success_rate": sr, "avg_reward": avg_r}
     return results
 
@@ -634,10 +739,17 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                  ppo_config=None, eval_freq=50, eval_eps=20, seed=42, verbose=True,
                  backend="cpu", device=None, run_tag=None, pretrain_ckpts=None,
                  pretrain_freeze_task=False, expert_anchors=None, anchor_coef=2.0,
-                 stop_sr=0.0, mtd_coef=0.0, init_ckpt=""):
+                 stop_sr=0.0, mtd_coef=0.0, init_ckpt="", n_heads=1,
+                 trunk_lr_mult=1.0, private_base_tasks=()):
     er_config = er_config or ER_CONFIG
     ppo_config = ppo_config or PPO_CONFIG
     n_tasks = len(task_sequence)
+    # Indices (in task_sequence order) of tasks that get a private base network
+    # instead of the shared one. Indices, not names, because the checkpoint
+    # layout -- and therefore the evaluation script -- is positional.
+    _private_ids = tuple(
+        i for i, t in enumerate(task_sequence)
+        if t in set(private_base_tasks or ()))
     obs_dim = UNIFIED_OBS_DIM          # 48, identical for every task
     action_dim = 8                     # pd_joint_delta_pos: 7 joints + 1 gripper
 
@@ -709,7 +821,8 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
             f"check control_mode in TASK_INFO")
 
         if task_idx == 0:
-            agent = Agent(obs_dim, action_dim).to(device_obj)
+            agent = Agent(obs_dim, action_dim, n_heads=n_heads,
+                          private_base_ids=_private_ids).to(device_obj)
             # Continuation of a previous CL run (the "consolidation" pass).
             # A FULL state dict, unlike the policy-only warm start below: the
             # consolidation pass continues the same CL trajectory, so the
@@ -744,7 +857,29 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
             _actor = {k[len("actor_mean."):]: v for k, v in _sd.items()
                       if k.startswith("actor_mean.")}
             assert _actor, f"no actor_mean.* weights in {_path}"
-            agent.actor_mean.load_state_dict(_actor, strict=True)
+            if agent._trunk is not None and task_idx in agent.private_base_ids:
+                # Outlier task: the whole expert IS this task's network, so it
+                # loads verbatim -- base and adapter both, no sharing involved.
+                agent.private_nets[str(task_idx)].load_state_dict(
+                    _actor, strict=True)
+            elif agent._trunk is not None and task_idx > 0:
+                # Multi-head: the expert's base is shared (that is the point),
+                # but its last hidden layer and output layer belong to THIS
+                # task's adapter. Writing them into actor_mean would overwrite
+                # task 0's adapter.
+                _nb = Agent.SHARED_BASE_LAYERS
+                _body = {k: v for k, v in _actor.items()
+                         if int(k.split(".")[0]) < _nb}
+                # teacher adapter ("4.*", "6.*") -> local adapter ("0.*", "2.*")
+                _adapt = {str(int(k.split(".")[0]) - _nb) + k[k.index("."):]: v
+                          for k, v in _actor.items()
+                          if int(k.split(".")[0]) >= _nb}
+                assert _adapt, f"no adapter weights in {_path}"
+                agent.actor_mean.load_state_dict(_body, strict=False)
+                agent.actor_heads_extra[task_idx - 1].load_state_dict(
+                    _adapt, strict=True)
+            else:
+                agent.actor_mean.load_state_dict(_actor, strict=True)
             with torch.no_grad():
                 agent.actor_logstd.fill_(PRETRAIN_LOGSTD_FROZEN if pretrain_freeze_task else PRETRAIN_LOGSTD)
             # The value HEAD is task-specific: mean episodic reward differs by
@@ -787,9 +922,33 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 print(f"  [anchor] {env_id}: distilling from {_apath} "
                       f"(coef={anchor_coef})")
 
+        # A finished outlier task keeps its own network, so nothing should touch
+        # it again: MTD still distils every old task, and on a private net that
+        # distillation alone moved PegInsertionSide 85% -> 62% over the other
+        # five tasks. Freezing it keeps the finished policy bit-exact.
+        for _ptid in sorted(agent.private_base_ids):
+            if _ptid < task_idx:
+                for _p in agent.private_nets[str(_ptid)].parameters():
+                    _p.requires_grad_(False)
+
         task_lr = PRETRAIN_LR if _warm else ppo_config["learning_rate"]
         task_target_kl = PRETRAIN_TARGET_KL if _warm else ppo_config.get("target_kl")
-        optimizer = optim.Adam(agent.parameters(), lr=task_lr, eps=1e-5)
+        # Multi-head: the heads are free to move at full speed, but the shared
+        # trunk is what a finished task's frozen head reads from, so its drift
+        # is the remaining leak (measured: with heads frozen per task, Peg still
+        # went 95% -> 20% in 164k steps purely from trunk updates). Give the
+        # trunk its own, much smaller step size instead of freezing it outright:
+        # freezing would block all representation transfer between tasks.
+        if agent._trunk is not None and trunk_lr_mult != 1.0:
+            _trunk_ids = {id(p) for p in agent.trunk_parameters()}
+            _trunk = [p for p in agent.parameters() if id(p) in _trunk_ids]
+            _rest = [p for p in agent.parameters() if id(p) not in _trunk_ids]
+            optimizer = optim.Adam([
+                {"params": _trunk, "lr": task_lr * trunk_lr_mult},
+                {"params": _rest, "lr": task_lr},
+            ], eps=1e-5)
+        else:
+            optimizer = optim.Adam(agent.parameters(), lr=task_lr, eps=1e-5)
         critic_warmup_iters = 5 if task_idx > 0 else 0
         if _warm:
             critic_warmup_iters = max(critic_warmup_iters, PRETRAIN_FREEZE_ITERS)
@@ -852,7 +1011,8 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
             for step in range(num_steps):
                 global_step += num_envs
                 with torch.no_grad():
-                    action, logprob, _, value = agent.get_action_and_value(obs_tensor)
+                    action, logprob, _, value = agent.get_action_and_value(
+                        obs_tensor, tid=task_idx)
 
                 next_obs, rewards, dones, truncateds, infos, final_obs = envs.step(action)
                 next_obs_tensor = as_tensor(next_obs, device_obj)
@@ -976,7 +1136,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                     mb_inds = b_inds[start:end]
 
                     _, newlogprob, entropy, newvalue = agent.get_action_and_value(
-                        b_obs[mb_inds], b_actions[mb_inds])
+                        b_obs[mb_inds], b_actions[mb_inds], tid=task_idx)
                     logratio = newlogprob - b_logprobs[mb_inds]
                     ratio = logratio.exp()
 
@@ -1017,7 +1177,9 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                         rp_idx = torch.randint(0, replay_obs_all.shape[0], (mb_size,),
                                                device=device_obj)
                         _, rp_logprob, _, _ = agent.get_action_and_value(
-                            replay_obs_all[rp_idx], replay_actions_all[rp_idx])
+                            replay_obs_all[rp_idx], replay_actions_all[rp_idx],
+                            tid=replay_tids_all[rp_idx]
+                            if replay_tids_all is not None else 0)
                         bc_loss = -torch.clamp(rp_logprob, min=-BC_LOGPROB_CLAMP).mean()
                         loss = loss + ppo_config.get("bc_coef", 0.05) * bc_loss
                         bc_log.append(float(bc_loss))
@@ -1026,7 +1188,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                         with torch.no_grad():
                             teacher_mu = anchor_net(b_obs[mb_inds])
                         anchor_loss = torch.nn.functional.mse_loss(
-                            agent.actor_mean(b_obs[mb_inds]), teacher_mu)
+                            agent.head_mean(b_obs[mb_inds], task_idx), teacher_mu)
                         loss = loss + anchor_coef * anchor_loss
                         anchor_log.append(float(anchor_loss))
 
@@ -1053,7 +1215,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                             with torch.no_grad():
                                 t_mu = net(obs_sel)
                             mtd_loss = mtd_loss + torch.nn.functional.mse_loss(
-                                agent.actor_mean(obs_sel), t_mu) * (
+                                agent.head_mean(obs_sel, int(tid)), t_mu) * (
                                     obs_sel.shape[0] / mb_size)
                         loss = loss + mtd_coef * mtd_loss
                         mtd_log.append(float(mtd_loss))
@@ -1112,9 +1274,10 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                     print(f"\n  -- Eval @ step {global_step:,}/{task_total_steps} --")
 
                 eval_results = {}
-                for eval_env_id in task_sequence[:task_idx+1]:
+                for eval_tid, eval_env_id in enumerate(task_sequence[:task_idx+1]):
                     sr, avg_r = evaluate_task(agent, eval_env_id, num_eps=eval_eps,
-                                              backend=backend, device=device)
+                                              backend=backend, device=device,
+                                              tid=eval_tid)
                     eval_results[eval_env_id] = {"success_rate": sr, "avg_reward": avg_r}
                     if verbose:
                         print(f"    {eval_env_id}: SR={sr:.1f}% avg_R={avg_r:.2f}")
@@ -1251,6 +1414,21 @@ if __name__ == "__main__":
                              "--num-steps 64 (batch 8,192) set this to 16 to keep the "
                              "archived baseline's optimizer schedule (gradient steps, "
                              "not just samples, drive how fast a task converges).")
+    parser.add_argument("--gamma", type=float, default=None,
+                        help="Override discount factor (default 0.8). Official PPO "
+                             "raises it to 0.99 for long-horizon tasks such as "
+                             "PegInsertionSide where 0.8 cannot assign credit.")
+    parser.add_argument("--gae-lambda", type=float, default=None,
+                        help="Override GAE lambda (default 0.9).")
+    parser.add_argument("--lr", type=float, default=None,
+                        help="Override the shared actor-critic learning rate "
+                             "(default 3e-4, which is too aggressive for a "
+                             "precision task sharing the trunk).")
+    parser.add_argument("--target-kl", type=float, default=None,
+                        help="Override the target-KL early-stop threshold "
+                             "(default 0.1). Lower keeps each update closer to "
+                             "the rollout distribution, which is what protects "
+                             "a brittle previously-learned task.")
     parser.add_argument("--run-tag", type=str, default=None,
                         help="Suffix for result/checkpoint filenames, e.g. 'gpu5task'. "
                              "Omit to reuse the original names (the 12M CPU evidence).")
@@ -1273,6 +1451,26 @@ if __name__ == "__main__":
                         help="Weight of the multi-teacher distillation term: every "
                              "ER replay sample is distilled from the expert of the "
                              "task it came from. 0 disables it (plain ER).")
+    parser.add_argument("--multi-head", action="store_true",
+                        help="Task-incremental heads: one shared trunk plus one final "
+                             "actor layer per task, selected by task index at rollout, "
+                             "evaluation and on every replay row. Makes overwriting a "
+                             "finished task impossible, which is what a precision task "
+                             "such as PegInsertionSide needs (single head: 95%% -> 0%% "
+                             "in 200k steps, at any learning rate).")
+    parser.add_argument("--trunk-lr-mult", type=float, default=1.0,
+                        help="Multiplier on the shared trunk's learning rate "
+                             "(multi-head only). 1.0 = same as the heads; 0.1 keeps "
+                             "the representation nearly still so a frozen task head "
+                             "keeps seeing the features it was learned on.")
+    parser.add_argument("--private-base", type=str, default="",
+                        help="Comma-separated outlier tasks (names from "
+                             "--task-sequence) that get a private copy of the "
+                             "whole actor instead of the shared base + adapter. "
+                             "Measured conflict: PegInsertionSide and StackCube "
+                             "need opposite base plasticity (Peg 60%% at "
+                             "trunk-lr-mult 0.5 where Stack reaches 75%%, Stack "
+                             "0%% at 0.1 where Peg holds 85-95%%).")
     parser.add_argument("--stop-sr", type=float, default=0.0,
                         help="Per-task early stop: after two consecutive evals at "
                              "or above this success rate (%%), move on to the next "
@@ -1307,6 +1505,22 @@ if __name__ == "__main__":
         ppo_cfg["num_steps"] = args.num_steps
     if args.num_minibatches is not None:
         ppo_cfg["num_minibatches"] = args.num_minibatches
+    # Official PPO raises the discount up to 0.99 for tasks where the default 0.8
+    # fails (long-horizon credit assignment, e.g. PegInsertionSide). Exposed here
+    # so a per-task override does not require editing the config dict.
+    if args.gamma is not None:
+        ppo_cfg["gamma"] = args.gamma
+    if args.gae_lambda is not None:
+        ppo_cfg["gae_lambda"] = args.gae_lambda
+    # Global optimiser overrides. Needed when a sequence carries a precision
+    # task (PegInsertionSide): the stock 3e-4 / target_kl 0.1 moves the shared
+    # actor far enough in a handful of updates to take insertion success from
+    # 95% to 0% (measured), so the whole sequence has to run at the gentler
+    # schedule that warm starts already use.
+    if args.lr is not None:
+        ppo_cfg["learning_rate"] = args.lr
+    if args.target_kl is not None:
+        ppo_cfg["target_kl"] = args.target_kl
     # Defaults already match: 16x512 -> 16 minibatches of 512 (CPU),
     # 512x50 -> 32 minibatches of 800 (GPU). Only recompute when the user
     # overrides the rollout shape, keeping minibatches at ~800 samples.
@@ -1400,4 +1614,8 @@ if __name__ == "__main__":
         mtd_coef=args.mtd_coef,
         init_ckpt=args.init_ckpt,
         stop_sr=args.stop_sr,
+        n_heads=len(task_seq) if args.multi_head else 1,
+        trunk_lr_mult=args.trunk_lr_mult,
+        private_base_tasks=[t.strip() for t in args.private_base.split(",")
+                            if t.strip()],
     )

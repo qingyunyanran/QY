@@ -1,0 +1,1620 @@
+{
+  "obs_interface": "unified_42_semantic_slots",
+  "sim_backend": "gpu",
+  "device": "cuda",
+  "run_tag": "c6v4_refit",
+  "task_sequence": [
+    "PegInsertionSide-v1",
+    "StackCube-v1",
+    "PullCube-v1",
+    "PickCube-v1",
+    "LiftPegUpright-v1",
+    "PushCube-v1"
+  ],
+  "total_timesteps_per_task": [
+    300000,
+    8192,
+    8192,
+    600000,
+    8192,
+    8192
+  ],
+  "er_config": {
+    "buffer_per_task": 200000,
+    "replay_ratio": 0.5,
+    "sample_strategy": "uniform_across_tasks"
+  },
+  "anchor_coef": 2.0,
+  "mtd_coef": 2.0,
+  "init_ckpt": "ckpts/ppo_er_unified/ppo_er_unified_task5_PushCube-v1_c6v4_ad.pt",
+  "ppo_config": {
+    "learning_rate": 0.0003,
+    "num_envs": 128,
+    "num_steps": 64,
+    "num_eval_envs": 2,
+    "gamma": 0.8,
+    "gae_lambda": 0.9,
+    "num_minibatches": 16,
+    "update_epochs": 4,
+    "norm_adv": true,
+    "clip_coef": 0.2,
+    "clip_vloss": false,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "anneal_lr": false,
+    "reward_scale": 1.0,
+    "bc_coef": 0.05,
+    "target_kl": 0.1
+  },
+  "per_task_results": {
+    "task_0_PegInsertionSide-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 85.00000238418579,
+          "avg_reward": 22.366544723510742
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 26.464202880859375
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 18.73582649230957
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 245760,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 25.45821189880371
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 294912,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 29.545745849609375
+            }
+          },
+          "avg_success_rate": 80.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.753137588500977
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.237737655639648
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7678656578063965
+            },
+            "PickCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 12.324541091918945
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 163840,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.214542388916016
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.65707778930664
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.6980719566345215
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.144221305847168
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 245760,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 22.306089401245117
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 17.810468673706055
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.525426864624023
+            },
+            "PickCube-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 13.397224426269531
+            }
+          },
+          "avg_success_rate": 85.00000089406967
+        },
+        {
+          "global_step": 327680,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 24.5506591796875
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.580373764038086
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.584253787994385
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.281305313110352
+            }
+          },
+          "avg_success_rate": 87.50000149011612
+        },
+        {
+          "global_step": 409600,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.023000717163086
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.407699584960938
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.779810905456543
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.009650230407715
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 491520,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 23.166297912597656
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.324089050292969
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.915750026702881
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.722224235534668
+            }
+          },
+          "avg_success_rate": 95.00000029802322
+        },
+        {
+          "global_step": 573440,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 26.66266441345215
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.816012382507324
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.599308967590332
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.333666801452637
+            }
+          },
+          "avg_success_rate": 92.49999970197678
+        },
+        {
+          "global_step": 598016,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.235919952392578
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 19.977569580078125
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 6.062778472900391
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.549777030944824
+            }
+          },
+          "avg_success_rate": 90.00000059604645
+        }
+      ]
+    },
+    "task_1_StackCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 21.495214462280273
+        },
+        "StackCube-v1": {
+          "success_rate": 69.9999988079071,
+          "avg_reward": 20.64176368713379
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 26.464202880859375
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 18.73582649230957
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 245760,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 25.45821189880371
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 294912,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 29.545745849609375
+            }
+          },
+          "avg_success_rate": 80.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.753137588500977
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.237737655639648
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7678656578063965
+            },
+            "PickCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 12.324541091918945
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 163840,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.214542388916016
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.65707778930664
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.6980719566345215
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.144221305847168
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 245760,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 22.306089401245117
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 17.810468673706055
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.525426864624023
+            },
+            "PickCube-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 13.397224426269531
+            }
+          },
+          "avg_success_rate": 85.00000089406967
+        },
+        {
+          "global_step": 327680,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 24.5506591796875
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.580373764038086
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.584253787994385
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.281305313110352
+            }
+          },
+          "avg_success_rate": 87.50000149011612
+        },
+        {
+          "global_step": 409600,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.023000717163086
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.407699584960938
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.779810905456543
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.009650230407715
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 491520,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 23.166297912597656
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.324089050292969
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.915750026702881
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.722224235534668
+            }
+          },
+          "avg_success_rate": 95.00000029802322
+        },
+        {
+          "global_step": 573440,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 26.66266441345215
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.816012382507324
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.599308967590332
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.333666801452637
+            }
+          },
+          "avg_success_rate": 92.49999970197678
+        },
+        {
+          "global_step": 598016,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.235919952392578
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 19.977569580078125
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 6.062778472900391
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.549777030944824
+            }
+          },
+          "avg_success_rate": 90.00000059604645
+        }
+      ]
+    },
+    "task_2_PullCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 14.83072566986084
+        },
+        "StackCube-v1": {
+          "success_rate": 85.00000238418579,
+          "avg_reward": 16.500843048095703
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.868357181549072
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 26.464202880859375
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 18.73582649230957
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 245760,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 25.45821189880371
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 294912,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 29.545745849609375
+            }
+          },
+          "avg_success_rate": 80.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.753137588500977
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.237737655639648
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7678656578063965
+            },
+            "PickCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 12.324541091918945
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 163840,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.214542388916016
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.65707778930664
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.6980719566345215
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.144221305847168
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 245760,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 22.306089401245117
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 17.810468673706055
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.525426864624023
+            },
+            "PickCube-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 13.397224426269531
+            }
+          },
+          "avg_success_rate": 85.00000089406967
+        },
+        {
+          "global_step": 327680,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 24.5506591796875
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.580373764038086
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.584253787994385
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.281305313110352
+            }
+          },
+          "avg_success_rate": 87.50000149011612
+        },
+        {
+          "global_step": 409600,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.023000717163086
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.407699584960938
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.779810905456543
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.009650230407715
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 491520,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 23.166297912597656
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.324089050292969
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.915750026702881
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.722224235534668
+            }
+          },
+          "avg_success_rate": 95.00000029802322
+        },
+        {
+          "global_step": 573440,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 26.66266441345215
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.816012382507324
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.599308967590332
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.333666801452637
+            }
+          },
+          "avg_success_rate": 92.49999970197678
+        },
+        {
+          "global_step": 598016,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.235919952392578
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 19.977569580078125
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 6.062778472900391
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.549777030944824
+            }
+          },
+          "avg_success_rate": 90.00000059604645
+        }
+      ]
+    },
+    "task_3_PickCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 21.696414947509766
+        },
+        "StackCube-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 10.761889457702637
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.992151737213135
+        },
+        "PickCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 11.189745903015137
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 26.464202880859375
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 18.73582649230957
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 245760,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 25.45821189880371
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 294912,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 29.545745849609375
+            }
+          },
+          "avg_success_rate": 80.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.753137588500977
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.237737655639648
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7678656578063965
+            },
+            "PickCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 12.324541091918945
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 163840,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.214542388916016
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.65707778930664
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.6980719566345215
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.144221305847168
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 245760,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 22.306089401245117
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 17.810468673706055
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.525426864624023
+            },
+            "PickCube-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 13.397224426269531
+            }
+          },
+          "avg_success_rate": 85.00000089406967
+        },
+        {
+          "global_step": 327680,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 24.5506591796875
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.580373764038086
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.584253787994385
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.281305313110352
+            }
+          },
+          "avg_success_rate": 87.50000149011612
+        },
+        {
+          "global_step": 409600,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.023000717163086
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.407699584960938
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.779810905456543
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.009650230407715
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 491520,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 23.166297912597656
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.324089050292969
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.915750026702881
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.722224235534668
+            }
+          },
+          "avg_success_rate": 95.00000029802322
+        },
+        {
+          "global_step": 573440,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 26.66266441345215
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.816012382507324
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.599308967590332
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.333666801452637
+            }
+          },
+          "avg_success_rate": 92.49999970197678
+        },
+        {
+          "global_step": 598016,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.235919952392578
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 19.977569580078125
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 6.062778472900391
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.549777030944824
+            }
+          },
+          "avg_success_rate": 90.00000059604645
+        }
+      ]
+    },
+    "task_4_LiftPegUpright-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 80.0000011920929,
+          "avg_reward": 27.762897491455078
+        },
+        "StackCube-v1": {
+          "success_rate": 75.0,
+          "avg_reward": 21.144031524658203
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.678212642669678
+        },
+        "PickCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 10.997554779052734
+        },
+        "LiftPegUpright-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 12.805098533630371
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 26.464202880859375
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 18.73582649230957
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 245760,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 25.45821189880371
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 294912,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 29.545745849609375
+            }
+          },
+          "avg_success_rate": 80.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.753137588500977
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.237737655639648
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7678656578063965
+            },
+            "PickCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 12.324541091918945
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 163840,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.214542388916016
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.65707778930664
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.6980719566345215
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.144221305847168
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 245760,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 22.306089401245117
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 17.810468673706055
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.525426864624023
+            },
+            "PickCube-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 13.397224426269531
+            }
+          },
+          "avg_success_rate": 85.00000089406967
+        },
+        {
+          "global_step": 327680,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 24.5506591796875
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.580373764038086
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.584253787994385
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.281305313110352
+            }
+          },
+          "avg_success_rate": 87.50000149011612
+        },
+        {
+          "global_step": 409600,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.023000717163086
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.407699584960938
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.779810905456543
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.009650230407715
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 491520,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 23.166297912597656
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.324089050292969
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.915750026702881
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.722224235534668
+            }
+          },
+          "avg_success_rate": 95.00000029802322
+        },
+        {
+          "global_step": 573440,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 26.66266441345215
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.816012382507324
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.599308967590332
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.333666801452637
+            }
+          },
+          "avg_success_rate": 92.49999970197678
+        },
+        {
+          "global_step": 598016,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.235919952392578
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 19.977569580078125
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 6.062778472900391
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.549777030944824
+            }
+          },
+          "avg_success_rate": 90.00000059604645
+        }
+      ]
+    },
+    "task_5_PushCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 85.00000238418579,
+          "avg_reward": 23.281970977783203
+        },
+        "StackCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 10.727839469909668
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.671790599822998
+        },
+        "PickCube-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 11.83717155456543
+        },
+        "LiftPegUpright-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 10.307361602783203
+        },
+        "PushCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 4.1026177406311035
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 26.464202880859375
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 18.73582649230957
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 245760,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 25.45821189880371
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 294912,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 29.545745849609375
+            }
+          },
+          "avg_success_rate": 80.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.753137588500977
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.237737655639648
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7678656578063965
+            },
+            "PickCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 12.324541091918945
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 163840,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.214542388916016
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.65707778930664
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.6980719566345215
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.144221305847168
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 245760,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 22.306089401245117
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 17.810468673706055
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.525426864624023
+            },
+            "PickCube-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 13.397224426269531
+            }
+          },
+          "avg_success_rate": 85.00000089406967
+        },
+        {
+          "global_step": 327680,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 24.5506591796875
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.580373764038086
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.584253787994385
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.281305313110352
+            }
+          },
+          "avg_success_rate": 87.50000149011612
+        },
+        {
+          "global_step": 409600,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.023000717163086
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.407699584960938
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.779810905456543
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 12.009650230407715
+            }
+          },
+          "avg_success_rate": 90.00000208616257
+        },
+        {
+          "global_step": 491520,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 23.166297912597656
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.324089050292969
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.915750026702881
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.722224235534668
+            }
+          },
+          "avg_success_rate": 95.00000029802322
+        },
+        {
+          "global_step": 573440,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 26.66266441345215
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.816012382507324
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.599308967590332
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.333666801452637
+            }
+          },
+          "avg_success_rate": 92.49999970197678
+        },
+        {
+          "global_step": 598016,
+          "task": "PickCube-v1",
+          "task_idx": 3,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.235919952392578
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 19.977569580078125
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 6.062778472900391
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.549777030944824
+            }
+          },
+          "avg_success_rate": 90.00000059604645
+        }
+      ]
+    }
+  },
+  "best_avg_sr": {
+    "0": 94.9999988079071,
+    "1": 94.9999988079071,
+    "2": 94.9999988079071,
+    "3": 95.00000029802322,
+    "4": 95.00000029802322,
+    "5": 95.00000029802322
+  }
+}
