@@ -1,0 +1,3618 @@
+{
+  "obs_interface": "unified_42_semantic_slots",
+  "sim_backend": "gpu",
+  "device": "cuda",
+  "run_tag": "c8v5_cons",
+  "task_sequence": [
+    "PegInsertionSide-v1",
+    "StackCube-v1",
+    "PullCube-v1",
+    "PickCube-v1",
+    "LiftPegUpright-v1",
+    "PushCube-v1",
+    "PokeCube-v1",
+    "PullCubeTool-v1"
+  ],
+  "total_timesteps_per_task": [
+    200000,
+    200000,
+    200000,
+    8192,
+    200000,
+    200000,
+    200000,
+    200000
+  ],
+  "er_config": {
+    "buffer_per_task": 200000,
+    "replay_ratio": 0.5,
+    "sample_strategy": "uniform_across_tasks"
+  },
+  "anchor_coef": 2.0,
+  "mtd_coef": 2.0,
+  "init_ckpt": "ckpts/ppo_er_unified/ppo_er_unified_task7_PullCubeTool-v1_c8v4_picktrunk.pt",
+  "ppo_config": {
+    "learning_rate": 0.0003,
+    "num_envs": 128,
+    "num_steps": 64,
+    "num_eval_envs": 2,
+    "gamma": 0.99,
+    "gae_lambda": 0.9,
+    "num_minibatches": 16,
+    "update_epochs": 4,
+    "norm_adv": true,
+    "clip_coef": 0.2,
+    "clip_vloss": false,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "anneal_lr": false,
+    "reward_scale": 1.0,
+    "bc_coef": 0.05,
+    "target_kl": 0.1
+  },
+  "per_task_results": {
+    "task_0_PegInsertionSide-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 20.77571678161621
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_1_StackCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 19.268630981445312
+        },
+        "StackCube-v1": {
+          "success_rate": 80.0000011920929,
+          "avg_reward": 18.595869064331055
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_2_PullCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 22.38082504272461
+        },
+        "StackCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 12.144800186157227
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.76664400100708
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_3_PickCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 19.675312042236328
+        },
+        "StackCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 11.332990646362305
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.502792835235596
+        },
+        "PickCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 11.159574508666992
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_4_LiftPegUpright-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 75.0,
+          "avg_reward": 30.001977920532227
+        },
+        "StackCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 10.3648042678833
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.94000768661499
+        },
+        "PickCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 9.01706600189209
+        },
+        "LiftPegUpright-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 16.470779418945312
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_5_PushCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 21.093088150024414
+        },
+        "StackCube-v1": {
+          "success_rate": 90.00000357627869,
+          "avg_reward": 12.273138046264648
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.674108982086182
+        },
+        "PickCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 9.083954811096191
+        },
+        "LiftPegUpright-v1": {
+          "success_rate": 85.00000238418579,
+          "avg_reward": 14.71911907196045
+        },
+        "PushCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 4.179542064666748
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_6_PokeCube-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 19.22627067565918
+        },
+        "StackCube-v1": {
+          "success_rate": 80.0000011920929,
+          "avg_reward": 16.07968521118164
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 6.035652160644531
+        },
+        "PickCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 9.999212265014648
+        },
+        "LiftPegUpright-v1": {
+          "success_rate": 80.0000011920929,
+          "avg_reward": 13.353446006774902
+        },
+        "PushCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 4.044283390045166
+        },
+        "PokeCube-v1": {
+          "success_rate": 85.00000238418579,
+          "avg_reward": 16.935029983520508
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    },
+    "task_7_PullCubeTool-v1": {
+      "final_eval": {
+        "PegInsertionSide-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 19.769107818603516
+        },
+        "StackCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 12.689818382263184
+        },
+        "PullCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 5.908584117889404
+        },
+        "PickCube-v1": {
+          "success_rate": 94.9999988079071,
+          "avg_reward": 9.115952491760254
+        },
+        "LiftPegUpright-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 15.19275188446045
+        },
+        "PushCube-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 4.03302526473999
+        },
+        "PokeCube-v1": {
+          "success_rate": 75.0,
+          "avg_reward": 21.842998504638672
+        },
+        "PullCubeTool-v1": {
+          "success_rate": 100.0,
+          "avg_reward": 30.457366943359375
+        }
+      },
+      "eval_log": [
+        {
+          "global_step": 81920,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.87510871887207
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 163840,
+          "task": "PegInsertionSide-v1",
+          "task_idx": 0,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.609256744384766
+            }
+          },
+          "avg_success_rate": 94.9999988079071
+        },
+        {
+          "global_step": 81920,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.645673751831055
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.40881061553955
+            }
+          },
+          "avg_success_rate": 87.50000298023224
+        },
+        {
+          "global_step": 163840,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.609643936157227
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 18.372516632080078
+            }
+          },
+          "avg_success_rate": 85.00000238418579
+        },
+        {
+          "global_step": 196608,
+          "task": "StackCube-v1",
+          "task_idx": 1,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 75.0,
+              "avg_reward": 31.103647232055664
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 13.885553359985352
+            }
+          },
+          "avg_success_rate": 82.50000178813934
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 19.423614501953125
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.021452903747559
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.768770694732666
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCube-v1",
+          "task_idx": 2,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 21.531312942504883
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 11.16456413269043
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.841278076171875
+            }
+          },
+          "avg_success_rate": 96.66666587193806
+        },
+        {
+          "global_step": 81920,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 19.407001495361328
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 10.952003479003906
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7882585525512695
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.800050735473633
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 14.355148315429688
+            }
+          },
+          "avg_success_rate": 96.00000023841858
+        },
+        {
+          "global_step": 163840,
+          "task": "LiftPegUpright-v1",
+          "task_idx": 4,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 20.78219223022461
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 13.648749351501465
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.007322788238525
+            },
+            "PickCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 11.637457847595215
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.494964599609375
+            }
+          },
+          "avg_success_rate": 90.0000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 69.9999988079071,
+              "avg_reward": 28.98420524597168
+            },
+            "StackCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.386638641357422
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 6.020397186279297
+            },
+            "PickCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 9.344264030456543
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 16.654094696044922
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.050424098968506
+            }
+          },
+          "avg_success_rate": 88.33333353201549
+        },
+        {
+          "global_step": 163840,
+          "task": "PushCube-v1",
+          "task_idx": 5,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 23.029890060424805
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.22218894958496
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.820144176483154
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.706339836120605
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.903668403625488
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.266297817230225
+            }
+          },
+          "avg_success_rate": 92.5000011920929
+        },
+        {
+          "global_step": 81920,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 20.673059463500977
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 12.28815746307373
+            },
+            "PullCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 5.944356441497803
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.081155776977539
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 18.26905059814453
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.949864149093628
+            },
+            "PokeCube-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 21.659711837768555
+            }
+          },
+          "avg_success_rate": 91.42857279096332
+        },
+        {
+          "global_step": 163840,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 21.967784881591797
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.573938369750977
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.660171031951904
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.665241241455078
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 17.742664337158203
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 3.917055130004883
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.479734420776367
+            }
+          },
+          "avg_success_rate": 92.85714370863778
+        },
+        {
+          "global_step": 196608,
+          "task": "PokeCube-v1",
+          "task_idx": 6,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 22.92881202697754
+            },
+            "StackCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 15.868243217468262
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.7611236572265625
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 11.190855026245117
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 16.11199378967285
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.006227970123291
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 19.412418365478516
+            }
+          },
+          "avg_success_rate": 90.71428775787354
+        },
+        {
+          "global_step": 81920,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 80.0000011920929,
+              "avg_reward": 24.050567626953125
+            },
+            "StackCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 15.137524604797363
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.578429698944092
+            },
+            "PickCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.985000610351562
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 13.838339805603027
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.038181304931641
+            },
+            "PokeCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 11.626773834228516
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 31.54689598083496
+            }
+          },
+          "avg_success_rate": 95.62500044703484
+        },
+        {
+          "global_step": 163840,
+          "task": "PullCubeTool-v1",
+          "task_idx": 7,
+          "eval_results": {
+            "PegInsertionSide-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 24.50124740600586
+            },
+            "StackCube-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 9.805140495300293
+            },
+            "PullCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 5.709083557128906
+            },
+            "PickCube-v1": {
+              "success_rate": 90.00000357627869,
+              "avg_reward": 10.35698413848877
+            },
+            "LiftPegUpright-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 16.60102653503418
+            },
+            "PushCube-v1": {
+              "success_rate": 100.0,
+              "avg_reward": 4.176436901092529
+            },
+            "PokeCube-v1": {
+              "success_rate": 85.00000238418579,
+              "avg_reward": 17.316316604614258
+            },
+            "PullCubeTool-v1": {
+              "success_rate": 94.9999988079071,
+              "avg_reward": 32.67090606689453
+            }
+          },
+          "avg_success_rate": 93.75000074505806
+        }
+      ]
+    }
+  },
+  "best_avg_sr": {
+    "0": 94.9999988079071,
+    "1": 94.9999988079071,
+    "2": 96.66666587193806,
+    "3": 96.66666587193806,
+    "4": 96.66666587193806,
+    "5": 96.66666587193806,
+    "6": 96.66666587193806,
+    "7": 96.66666587193806
+  }
+}

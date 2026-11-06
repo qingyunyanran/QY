@@ -238,6 +238,9 @@ python pick_eval.py CKPT --eps-list 20,100   # 单任务 SR
 结果：`results/ppo_er_unified/ppo_er_unified_results_{c8v2_ad,c8v3_pickpg,c8v4_picktrunk,c8v5_cons,c8v6_noanchor}.json`
 日志：`logs/{c8v1_ad,c8v2_ad,c8v3_pickpg,c8v4_picktrunk,c8v5_cons,c8v6_noanchor}.log` 与同名 `_eval100.log`
 
+**已归档的权重与终评日志见 [`artifacts/`](artifacts/README.md)**：`c8v5_cons.pt`（8/8，均值 92.0）与
+`c8v6_noanchor.pt`（教师可省性对照，91.4），含 SHA256 与一键复评命令。
+
 ---
 
 ## 5. 局限与下一步

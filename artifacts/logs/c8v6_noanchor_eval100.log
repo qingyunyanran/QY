@@ -1,0 +1,17 @@
+   private-base tasks: ['PegInsertionSide-v1']
+
+== ckpts/ppo_er_unified/ppo_er_unified_task7_PullCubeTool-v1_c8v6_noanchor.pt
+   load: missing=[] unexpected=[]
+[33;1m2026-11-06 01:42:33,576 - mani_skill  - WARNING - No initial pose set for actor builder of goal_region, setting to default pose q=[1,0,0,0], p=[0,0,0]. Not setting reasonable initial poses may slow down simulation, see https://github.com/haosulab/ManiSkill/issues/421.[0m
+[33;1m2026-11-06 01:42:45,844 - mani_skill  - WARNING - No initial pose set for articulation builder of panda, setting to default pose q=[1,0,0,0], p=[0,0,0]. There may be simulation issues/bugs if this articulation at it's initial pose collides with other objects at their initial poses.[0m
+[33;1m2026-11-06 01:42:45,972 - mani_skill  - WARNING - No initial pose set for actor builder of cube, setting to default pose q=[1,0,0,0], p=[0,0,0]. Not setting reasonable initial poses may slow down simulation, see https://github.com/haosulab/ManiSkill/issues/421.[0m
+[33;1m2026-11-06 01:42:46,008 - mani_skill  - WARNING - No initial pose set for actor builder of l_shape_tool, setting to default pose q=[1,0,0,0], p=[0,0,0]. Not setting reasonable initial poses may slow down simulation, see https://github.com/haosulab/ManiSkill/issues/421.[0m
+   PegInsertionSide SR= 87.0%  avg_R=  22.95
+   StackCube  SR= 81.0%  avg_R=  18.17
+   PullCube   SR=100.0%  avg_R=   5.67
+   PickCube   SR= 95.0%  avg_R=   9.74
+   LiftPegUpright SR= 91.0%  avg_R=  15.56
+   PushCube   SR=100.0%  avg_R=   4.15
+   PokeCube   SR= 80.0%  avg_R=  23.42
+   PullCubeTool SR= 97.0%  avg_R=  27.83
+   mean SR = 91.4%  (eps/task=100)
