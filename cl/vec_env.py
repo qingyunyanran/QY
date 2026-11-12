@@ -45,6 +45,53 @@ import gymnasium as gym
 from unified_obs import UNIFIED_OBS_DIM, build_unified_obs_batch
 
 
+# ============================================================
+# Potential-based reward shaping for the sparse complex tasks
+# ============================================================
+# StackPyramid and PlugCharger ship sparse-only rewards: a random policy gets
+# exactly 0.000 for 7680 steps, so PPO has no gradient at all. Behaviour
+# cloning reaches the right *direction* but compounds a 0.017 rad per-step error
+# into a 0.34 rad drift over 190 steps, which is fatal (measured budget is
+# ~0.01 rad per step). What is missing is not accuracy but a signal that makes
+# "moving back towards the demo manifold" worth something, so the policy can
+# learn the closed-loop correction itself.
+#
+# The potential is the sum of stage distances (lower = closer to success) taken
+# straight off the unified observation, and it enters as the classic
+# potential-based shaping of Ng et al. 1999:
+#       r' = r + gamma * Phi(s') - Phi(s)
+# which provably leaves the optimal policy unchanged -- unlike adding -distance
+# per step, which invites the policy to hover.
+SHAPED_TASKS = {"StackPyramid-v1", "PlugCharger-v1"}
+
+
+def _phi(env_id, u):
+    """Potential Phi(s) for a (N, 48) unified observation; larger = further away."""
+    if env_id == "StackPyramid-v1":
+        tcp, a, b, c = u[:, 18:21], u[:, 25:28], u[:, 32:35], u[:, 39:42]
+        dev = u.device
+        up = torch.tensor([0.0, 0.0, 1.0], device=dev, dtype=u.dtype)
+        # reach cubeA, then cubeA onto cubeB, then cubeC onto the pair.
+        # The later stages carry more weight: standing still next to cubeA
+        # already maxes d1 and leaves d2/d3 constant, so an unweighted sum has a
+        # local optimum at "hover over the first cube and never grasp".
+        d1 = torch.linalg.norm(tcp - a, dim=1)
+        d2 = torch.linalg.norm(a - b - 0.04 * up, dim=1)
+        d3 = torch.linalg.norm(c - 0.5 * (a + b) - 0.085 * up, dim=1)
+        return 0.5 * d1 + 1.5 * d2 + 2.0 * d3
+    if env_id == "PlugCharger-v1":
+        tcp, p, g = u[:, 18:21], u[:, 25:32], u[:, 39:46]
+        # reaching the charger must pay before it is grasped, otherwise the
+        # potential is constant while the arm moves and gives no gradient
+        d1 = torch.linalg.norm(tcp - p[:, :3], dim=1)
+        d = torch.linalg.norm(p[:, :3] - g[:, :3], dim=1)
+        q1 = p[:, 3:7] / p[:, 3:7].norm(dim=1, keepdim=True).clamp_min(1e-8)
+        q2 = g[:, 3:7] / g[:, 3:7].norm(dim=1, keepdim=True).clamp_min(1e-8)
+        ang = 2.0 * torch.acos((q1 * q2).sum(1).abs().clamp(max=1.0))
+        return 0.5 * d1 + 1.5 * d + 0.15 * ang
+    return None
+
+
 def to_action_tensor(actions, device):
     """Accept a tensor or an ndarray, return a clipped (N, action_dim) float32
     tensor on `device`. Clipping matches MultiEnvWrapper ([-1, 1] action box)."""
@@ -95,7 +142,9 @@ class GpuVecEnv:
     backend = "gpu"
 
     def __init__(self, env_id, num_envs, cfg, control_mode, device="cuda",
-                 seed=0, max_episode_steps=None, reconfiguration_freq=None):
+                 seed=0, max_episode_steps=None, reconfiguration_freq=None,
+                 shaping_scale=None, shaping_gamma=0.99,
+                 shaping_time_penalty=0.0):
         kwargs = dict(
             num_envs=int(num_envs),
             obs_mode="state_dict",
@@ -126,6 +175,12 @@ class GpuVecEnv:
         self.obs_dim = UNIFIED_OBS_DIM
         self.action_dim = int(self.env.action_space.shape[-1])
         self.num_resets = 0
+        # 0.0 disables shaping entirely, so every other task is unaffected
+        self._shape_scale = (10.0 if shaping_scale is None else float(shaping_scale)) \
+            if env_id in SHAPED_TASKS else 0.0
+        self._shape_gamma = float(shaping_gamma)
+        self._shape_time_penalty = float(shaping_time_penalty)
+        self._phi_prev = None
 
     # -- observation ------------------------------------------------------
     def _obs(self, raw_obs):
@@ -135,7 +190,9 @@ class GpuVecEnv:
     def reset(self, seed=None):
         obs, info = self.env.reset(seed=seed)
         self.num_resets += self.num_envs
-        return self._obs(obs), info
+        u = self._obs(obs)
+        self._phi_prev = _phi(self.env_id, u) if self._shape_scale else None
+        return u, info
 
     def step(self, actions):
         actions = to_action_tensor(actions, self.device)
@@ -164,6 +221,23 @@ class GpuVecEnv:
             self.num_resets += int(idx.numel())
         else:
             next_obs = final_obs
+
+        # potential-based shaping (Ng et al. 1999): the terminal step is left
+        # untouched so the episode boundary cannot leak reward across resets,
+        # and finished envs restart their potential from the freshly reset obs
+        if self._shape_scale and self._phi_prev is not None:
+            phi_next = _phi(self.env_id, next_obs)
+            shape = self._shape_gamma * phi_next - self._phi_prev
+            shape = torch.where(done, torch.zeros_like(shape), shape)
+            rew = rew + self._shape_scale * shape
+            self._phi_prev = phi_next
+            # Optional per-step cost so that standing still is never free.
+            # Default 0: on StackPyramid the potential only drops ~0.4 over a
+            # whole episode, so scale * 0.002 * 178 steps ~= 3.6 cancels the
+            # entire shaping signal (measured: reward stuck at -27).
+            if self._shape_time_penalty:
+                rew = rew - self._shape_scale * self._shape_time_penalty \
+                    * (~done).float()
 
         return next_obs, rew, done, truncated, info, final_obs
 

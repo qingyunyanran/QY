@@ -814,7 +814,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                  pretrain_freeze_task=False, expert_anchors=None, anchor_coef=2.0,
                  stop_sr=0.0, mtd_coef=0.0, init_ckpt="", init_allow_expand=False,
                  n_heads=1, trunk_lr_mult=1.0, private_base_tasks=(),
-                 pretrain_adapter_only=False):
+                 pretrain_adapter_only=False, pretrain_logstd=None):
     er_config = er_config or ER_CONFIG
     ppo_config = ppo_config or PPO_CONFIG
     n_tasks = len(task_sequence)
@@ -961,8 +961,11 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                 assert _adapt, f"no adapter weights in {_path}"
             else:
                 agent.actor_mean.load_state_dict(_actor, strict=True)
+            _logstd = (pretrain_logstd if pretrain_logstd is not None
+                       else PRETRAIN_LOGSTD)
             with torch.no_grad():
-                agent.actor_logstd.fill_(PRETRAIN_LOGSTD_FROZEN if pretrain_freeze_task else PRETRAIN_LOGSTD)
+                agent.actor_logstd.fill_(
+                    PRETRAIN_LOGSTD_FROZEN if pretrain_freeze_task else _logstd)
             # The value HEAD is task-specific: mean episodic reward differs by
             # ~10x across these tasks (Push ~4, LiftPeg ~15, StackCube ~9 over a
             # much longer horizon). An inherited head therefore predicts values
@@ -978,7 +981,7 @@ def train_ppo_er(task_sequence, total_timesteps_per_task=3_000_000, er_config=No
                               and task_idx > 0) else "actor_mean")
                 print(f"  [warm start] {env_id}: {_where} <- {_path}")
                 print(f"  [warm start] critic.6 re-initialised, trunk kept, "
-                      f"actor_logstd reset to {PRETRAIN_LOGSTD}")
+                      f"actor_logstd reset to {_logstd}")
                 print(f"  [warm start] actor frozen for {PRETRAIN_FREEZE_ITERS} "
                       f"iterations, then lr={PRETRAIN_LR} target_kl={PRETRAIN_TARGET_KL}")
 
@@ -1539,6 +1542,13 @@ if __name__ == "__main__":
                              "earlier tasks and an expert's base would evict them. "
                              "New tasks then start from the expert's policy head "
                              "instead of a fresh, randomly initialised one.")
+    parser.add_argument("--pretrain-logstd", type=float, default=None,
+                        help="Override the actor log-std written in after a "
+                             "--pretrain-ckpt warm start (default: PRETRAIN_LOGSTD). "
+                             "Use a small value (e.g. -3.0) when the task needs "
+                             "precise actions: the default std=0.37 is an order of "
+                             "magnitude larger than the ~0.01 tolerance and the "
+                             "exploration noise destroys the warm-started policy.")
     parser.add_argument("--anchor-task", type=str, default="",
                         help="Distil a frozen expert into the shared actor for "
                              "TASK=PATH[,TASK=PATH...] instead of copying its "
@@ -1708,6 +1718,7 @@ if __name__ == "__main__":
         pretrain_ckpts=pretrain_ckpts,
         pretrain_freeze_task=args.pretrain_freeze_task,
         pretrain_adapter_only=args.pretrain_adapter_only,
+        pretrain_logstd=args.pretrain_logstd,
         expert_anchors=expert_anchors,
         anchor_coef=args.anchor_coef,
         mtd_coef=args.mtd_coef,
