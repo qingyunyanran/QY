@@ -405,16 +405,18 @@ python mani_skill/examples/motionplanning/panda/run.py -e PegInsertionSide-v1 -n
 
 ## 附录 A：交付物清单
 
-| 文件 | 内容 |
-|---|---|
-| `ckpts/sd_single_d5_p56.pt` | **交付模型**（8 任务单头，280 维输入，hidden 768） |
-| `ckpts/sd_single_d5.pt` | 同链 48 维版（240 维输入），92.4% |
-| `demos/sd_dagger_r5.npz` | 合并训练集（121,769 帧，48 维，tid 0–7） |
-| `_shapes.sh` | 数据集体检（帧数 / tid 分布 / 文件清单），本文所有帧数字由此得出 |
-| `_sd_train.py` | BC / DAgger 训练脚本（支持 EWC、warm start、按任务均衡采样） |
-| `_sd_eval_gpu.py` + `_ev8.sh` | 8 任务评测（GPU 后端、STACK 历史缓冲） |
-| `DATASET_AND_METHODS.md` | 数据集与方法全量说明（含负结果） |
-| `CL_10TASK_RESULTS.md` | CL 与 9 任务严格单头的完整实验记录 |
+| 文件 | 内容 | 位置 |
+|---|---|---|
+| `ckpts/sd_single_d5_p56.pt` | **交付模型**（8 任务单头，280 维输入，hidden 768） | 服务器 `/root/cl/ckpts/`，10.7 MB，未入仓库 |
+| `ckpts/sd_single_d5.pt` | 同链 48 维版（240 维输入），92.4% | 服务器 `/root/cl/ckpts/`，10.5 MB，未入仓库 |
+| `demos/sd_dagger_r5.npz` | 合并训练集（121,769 帧，48 维，tid 0–7） | 服务器 `/root/cl/demos/`，18.0 MB，未入仓库 |
+| `_shapes.sh` | 数据集体检（帧数 / tid 分布 / 文件清单），本文所有帧数字由此得出 | 仓库 `scripts/_shapes.sh` |
+| `_sd_train.py` | BC / DAgger 训练脚本（支持 EWC、warm start、按任务均衡采样） | 仓库 `scripts/_sd_train.py` |
+| `_sd_eval_gpu.py` + `_ev8.sh` | 8 任务评测（GPU 后端、STACK 历史缓冲） | 仓库 `scripts/_sd_eval_gpu.py`、`scripts/_ev8.sh` |
+| `DATASET_AND_METHODS.md` | 数据集与方法全量说明（含负结果） | 仓库 `docs/DATASET_AND_METHODS.md` |
+| `CL_10TASK_RESULTS.md` | CL 与 9 任务严格单头的完整实验记录 | 仓库 `docs/CL_10TASK_RESULTS.md` |
+
+> 仓库 <https://github.com/qingyunyanran/QY>，`main` 分支（2026-11-26，`fec7304`）。三个二进制文件（两个 `.pt`、一个 `.npz`，合计约 39 MB）不放进 git：`*.pt` 已被 `.gitignore` 排除，数据集体积也不适合进仓库历史；需要时直接从服务器 `/root/cl/` 取，或按需转 Release 附件。
 
 ---
 
