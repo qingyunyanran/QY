@@ -416,7 +416,7 @@ python mani_skill/examples/motionplanning/panda/run.py -e PegInsertionSide-v1 -n
 | `DATASET_AND_METHODS.md` | 数据集与方法全量说明（含负结果） | 仓库 `docs/DATASET_AND_METHODS.md` |
 | `CL_10TASK_RESULTS.md` | CL 与 9 任务严格单头的完整实验记录 | 仓库 `docs/CL_10TASK_RESULTS.md` |
 
-> 仓库 <https://github.com/qingyunyanran/QY>，`main` 分支（2026-11-26，`fec7304`）。三个二进制文件（两个 `.pt`、一个 `.npz`，合计约 39 MB）不放进 git：`*.pt` 已被 `.gitignore` 排除，数据集体积也不适合进仓库历史；需要时直接从服务器 `/root/cl/` 取，或按需转 Release 附件。
+> 仓库 <https://github.com/qingyunyanran/QY>，`main` 分支（2026-11-26 起；提交号以仓库首页为准，附录有改动时会变）。三个二进制文件（两个 `.pt`、一个 `.npz`，合计约 39 MB）不放进 git：`*.pt` 已被 `.gitignore` 排除，数据集体积也不适合进仓库历史；需要时直接从服务器 `/root/cl/` 取，或按需转 Release 附件。
 
 ---
 
